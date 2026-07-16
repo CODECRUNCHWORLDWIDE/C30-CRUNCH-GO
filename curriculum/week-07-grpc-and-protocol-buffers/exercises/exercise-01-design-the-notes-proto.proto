@@ -1,0 +1,207 @@
+// =============================================================================
+// Exercise 1 — Design the notes service in Protocol Buffers
+// C30 · Crunch Go — Week 7 (gRPC & Protocol Buffers)
+// =============================================================================
+//
+// WHAT THIS FILE IS
+//   A complete, lint-clean proto3 definition of the `notes` domain you have
+//   been building since Week 5. It is genuinely runnable: drop it under
+//   `proto/notes/v1/notes.proto`, add the buf config below, and
+//   `buf generate` will emit Go into `gen/notes/v1/`.
+//
+// HOW TO BUILD IT
+//   1. Install the plugins (once):
+//        go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
+//        go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
+//   2. Place this file at proto/notes/v1/notes.proto.
+//   3. Add buf.yaml at the repo root:
+//        version: v2
+//        modules:
+//          - path: proto
+//        lint:   { use: [ STANDARD ] }
+//        breaking: { use: [ FILE ] }
+//   4. Add buf.gen.yaml at the repo root:
+//        version: v2
+//        plugins:
+//          - local: protoc-gen-go
+//            out: gen
+//            opt: [ paths=source_relative ]
+//          - local: protoc-gen-go-grpc
+//            out: gen
+//            opt: [ paths=source_relative ]
+//   5. Run:
+//        buf lint        # must pass clean
+//        buf build       # must compile clean
+//        buf generate    # writes gen/notes/v1/{notes.pb.go,notes_grpc.pb.go}
+//
+// YOUR TASK
+//   This file is the reference answer for the *shape* of the schema. To earn
+//   the exercise, do all of the following and confirm each with the toolchain:
+//     (A) Run `buf lint` and make it pass with zero findings. If you mutate
+//         the file, keep the *_UNSPECIFIED zero enumerators and the versioned
+//         package or lint will complain — understand WHY each rule fires.
+//     (B) Add a `WatchNotesRequest` filter field of your own design (e.g. a
+//         `repeated string tags` AND-filter) WITHOUT renumbering any existing
+//         field. Re-run `buf build`.
+//     (C) Add an `errdetails`-friendly validation story by writing one
+//         sentence per RPC in a NOTES.md describing which `codes.Code` each
+//         failure mode should map to (you implement this in Exercise 3).
+//     (D) Delete the `body_format` field (number 8 on Note) "for real" by
+//         moving it into the `reserved` list, then prove `buf breaking
+//         --against '.git#branch=main'` ACCEPTS the reservation but REJECTS
+//         re-adding a different field at number 8.
+//
+// Citations: proto3 language guide  https://protobuf.dev/programming-guides/proto3/
+//            well-known types       https://protobuf.dev/reference/protobuf/google.protobuf/
+//            buf lint rules         https://buf.build/docs/lint/overview/
+// =============================================================================
+
+syntax = "proto3";
+
+package crunch.notes.v1;
+
+// Two halves: import path ; generated Go package name. Pin both.
+option go_package = "example.com/notes/gen/notes/v1;notesv1";
+
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/empty.proto";
+import "google/protobuf/field_mask.proto";
+
+// -----------------------------------------------------------------------------
+// Domain messages
+// -----------------------------------------------------------------------------
+
+// A single note. Field numbers 1-7 are the hot fields (one-byte tags); the
+// reserved block below tombstones two fields a prior draft carried.
+message Note {
+  string id = 1;
+  string title = 2;
+  string body = 3;
+  repeated string tags = 4;
+  google.protobuf.Timestamp created_at = 5;
+  google.protobuf.Timestamp updated_at = 6;
+
+  // `optional` turns on explicit presence: in Go this becomes a pointer, so
+  // the server can distinguish "never archived" (nil) from "archived at the
+  // zero time" (non-nil). A note that has never been archived omits this
+  // field on the wire entirely.
+  optional google.protobuf.Timestamp archived_at = 7;
+
+  // Number 8 was `BodyFormat body_format` in an earlier draft. Task (D) above
+  // moves it here. Reserving the NUMBER stops anyone reusing it; reserving the
+  // NAME stops anyone re-declaring a field called `body_format`.
+  reserved 9, 10;
+  reserved "color", "pinned";
+}
+
+// -----------------------------------------------------------------------------
+// Create
+// -----------------------------------------------------------------------------
+
+message CreateNoteRequest {
+  // The server assigns id/created_at/updated_at; the client supplies content.
+  string title = 1;
+  string body = 2;
+  repeated string tags = 3;
+}
+
+message CreateNoteResponse {
+  Note note = 1;
+}
+
+// -----------------------------------------------------------------------------
+// Get
+// -----------------------------------------------------------------------------
+
+message GetNoteRequest {
+  string id = 1;
+}
+
+message GetNoteResponse {
+  Note note = 1;
+}
+
+// -----------------------------------------------------------------------------
+// List (cursor pagination, the AIP-standard shape)
+// -----------------------------------------------------------------------------
+
+message ListNotesRequest {
+  // Server caps page_size; 0 means "server default". page_token is opaque to
+  // the client — it carries whatever cursor the server handed back last time.
+  int32 page_size = 1;
+  string page_token = 2;
+}
+
+message ListNotesResponse {
+  repeated Note notes = 1;
+  // Empty when there are no more pages.
+  string next_page_token = 2;
+}
+
+// -----------------------------------------------------------------------------
+// Update (partial, via FieldMask)
+// -----------------------------------------------------------------------------
+
+message UpdateNoteRequest {
+  // The note carrying the new values; only the masked paths are applied.
+  Note note = 1;
+  // Which fields to write. e.g. paths = ["title", "tags"] updates only those.
+  // An absent/empty mask is a full replace; senior code rejects empty masks.
+  google.protobuf.FieldMask update_mask = 2;
+}
+
+message UpdateNoteResponse {
+  Note note = 1;
+}
+
+// -----------------------------------------------------------------------------
+// Delete (returns nothing meaningful -> Empty)
+// -----------------------------------------------------------------------------
+
+message DeleteNoteRequest {
+  string id = 1;
+}
+
+// -----------------------------------------------------------------------------
+// Watch (server-streaming change feed)
+// -----------------------------------------------------------------------------
+
+enum NoteEventKind {
+  NOTE_EVENT_KIND_UNSPECIFIED = 0;
+  NOTE_EVENT_KIND_CREATED = 1;
+  NOTE_EVENT_KIND_UPDATED = 2;
+  NOTE_EVENT_KIND_DELETED = 3;
+  // A periodic no-op so the stream stays warm under HTTP/2 idle timeouts.
+  NOTE_EVENT_KIND_KEEPALIVE = 4;
+}
+
+message WatchNotesRequest {
+  // Only emit events for notes carrying this tag. Empty = all notes.
+  string tag_filter = 1;
+}
+
+message NoteEvent {
+  NoteEventKind kind = 1;
+  // Absent for KEEPALIVE and DELETED-by-id events; present otherwise.
+  Note note = 2;
+  // For DELETED events the note may be gone, so carry the id directly.
+  string note_id = 3;
+  google.protobuf.Timestamp at = 4;
+}
+
+// -----------------------------------------------------------------------------
+// Service
+// -----------------------------------------------------------------------------
+
+service NotesService {
+  // Unary.
+  rpc CreateNote(CreateNoteRequest) returns (CreateNoteResponse);
+  rpc GetNote(GetNoteRequest) returns (GetNoteResponse);
+  rpc ListNotes(ListNotesRequest) returns (ListNotesResponse);
+  rpc UpdateNote(UpdateNoteRequest) returns (UpdateNoteResponse);
+  // Returns the well-known Empty rather than an invented empty message.
+  rpc DeleteNote(DeleteNoteRequest) returns (google.protobuf.Empty);
+
+  // Server-streaming change feed.
+  rpc WatchNotes(WatchNotesRequest) returns (stream NoteEvent);
+}
