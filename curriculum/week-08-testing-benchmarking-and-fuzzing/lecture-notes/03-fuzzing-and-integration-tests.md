@@ -197,6 +197,16 @@ if key == "tag" {
 
 Re-run the crasher: `go test -run=FuzzParseQuery/<hash>` now passes. Re-run the fuzzer for 30 seconds: it finds nothing new. The crasher file stays committed so this exact bug can never silently come back. This is the full fuzzing loop — **write the invariant, find the crash, read the minimized input, fix the bug, keep the crasher as a regression test.**
 
+```mermaid
+flowchart LR
+  A["Write the invariant"] --> B["Fuzzer mutates seeds"]
+  B --> C["Crash found"]
+  C --> D["Minimized input saved under testdata"]
+  D --> E["Fix the bug"]
+  E --> F["Crasher becomes a regression test"]
+```
+*The fuzzing loop: an invariant plus mutation finds inputs no one thought to write by hand.*
+
 ## 5. When to fuzz, and the property mindset
 
 Fuzz anything that turns *untrusted bytes into structured values*: HTTP request bodies, query strings, headers, file formats, protocol frames, anything from `io.Reader`. The mindset shift from example-based testing is from "does it give the right answer for *this* input" to "does this *property* hold for *every* input." Properties are more powerful than examples because they cover inputs you cannot enumerate. The trade is that a property is harder to state — but for parsers, the three patterns in Section 2.1 (never-panic, round-trip, output-validity) cover almost every case, and you reach for them by reflex. Fuzzing is not a replacement for table-driven tests; it is a complement. The table tests the cases you understand; the fuzzer guards the boundary against the cases you do not.
@@ -290,6 +300,17 @@ func TestMain(m *testing.M) {
 	os.Exit(code)
 }
 ```
+
+```mermaid
+flowchart TD
+  A["TestMain starts"] --> B{"Docker available?"}
+  B -- No --> C["Exit 0, skip suite cleanly"]
+  B -- Yes --> D["Start Postgres container"]
+  D --> E["Run migrations once"]
+  E --> F["m.Run executes the whole suite"]
+  F --> G["Terminate the container"]
+```
+*One container and one migration pass for the entire suite, not one per test.*
 
 The shape is: `TestMain` starts *one* container, runs migrations *once*, runs the whole suite with `m.Run()`, and terminates the container after — far cheaper than a container per test. The **wait strategy** matters: a container that is "running" is not the same as a Postgres that is "ready to accept connections," and connecting too early gives you a connection-refused flake. `wait.ForLog("...ready to accept connections").WithOccurrence(2)` waits for the log line that the Postgres image prints twice (once during init, once when truly ready). The Postgres module's default wait strategy already handles this; the explicit form above shows what it is doing. There is also `wait.ForListeningPort` and `wait.ForSQL` (which actually executes a `SELECT 1`) — `wait.ForSQL` is the most reliable for "I can run queries now."
 

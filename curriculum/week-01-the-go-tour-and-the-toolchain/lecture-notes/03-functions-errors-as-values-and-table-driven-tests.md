@@ -111,6 +111,18 @@ Go has `panic` (stop normal flow, unwind the stack running deferred calls) and `
 
 The mantra: **don't panic; return an error.** A panic in a code path that should return an error is a code smell a reviewer will catch. Citation: <https://go.dev/blog/defer-panic-and-recover>.
 
+```mermaid
+flowchart TD
+  A["Normal execution"] --> B{"panic occurs"}
+  B -->|No| C["Function returns normally"]
+  B -->|Yes| D["Stack begins unwinding"]
+  D --> E["Deferred calls run in LIFO order"]
+  E --> F{"A deferred call invokes recover"}
+  F -->|Yes| G["Unwinding stops - error returned to caller"]
+  F -->|No| H["Unwinding continues up the stack"]
+```
+*Panic unwinds through deferred calls; only a deferred `recover` stops it.*
+
 ## 3. The `testing` package
 
 Tests are first-class and built in. The rules:
@@ -210,6 +222,17 @@ Why this shape wins:
 3. **The assertion logic is written once.** A bug in the comparison is in one place, not copied across ten functions.
 
 A note on comparing values: `reflect.DeepEqual` works for arbitrary structures but is slow and has sharp edges (it distinguishes a nil slice from an empty slice, for instance). For the mini-project we will use it; in real code prefer the `cmp` package (<https://pkg.go.dev/github.com/google/go-cmp/cmp>) for clearer diffs, which we introduce in Week 8. Citation: <https://go.dev/wiki/TableDrivenTests>.
+
+```mermaid
+flowchart LR
+  A["Table of test cases"] --> B["Loop over tests"]
+  B --> C["t.Run with case name"]
+  C --> D["Run function under test"]
+  D --> E{"Result matches want"}
+  E -->|Yes| F["Subtest passes"]
+  E -->|No| G["t.Errorf reports failure"]
+```
+*Each table row becomes one named, independently runnable subtest.*
 
 ### 4.1 Subtests, parallelism, and helpers — a preview
 

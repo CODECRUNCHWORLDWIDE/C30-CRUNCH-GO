@@ -146,6 +146,16 @@ func main() {
 
 Three disciplines in that code. **Required values have no default and fail loud** — `NOTES_DATABASE_URL` missing is a startup error, not a `nil` pool discovered on the first request. **Defaults are sensible for dev** — the ports and log level default so a developer can `docker run` with only the database URL set. **Secrets are never logged** — the startup log line reports `database_configured: true`, not the URL, because the URL carries the password and logs are not a secret store. The Week 9 `slog` work is what makes the structured, secret-free startup line natural.
 
+```mermaid
+flowchart TD
+  A["Load reads the environment"] --> B{"NOTES_DATABASE_URL set"}
+  B -->|"No"| C["Return error fail fast"]
+  B -->|"Yes"| D{"Environment is prod and OTLP endpoint empty"}
+  D -->|"Yes"| C
+  D -->|"No"| E["Return validated Config"]
+```
+*Config loading fails fast and loud on the first missing required setting rather than booting with a hidden gap.*
+
 This is deliberately *not* a config-framework. Go's standard library and a 60-line struct cover it; reaching for Viper or a config DSL adds a dependency and a file format to keep config *out* of, which is the opposite of the goal. Twelve-factor config is environment variables and a struct. Citation: <https://12factor.net/config> and the `os.LookupEnv` doc at <https://pkg.go.dev/os#LookupEnv>.
 
 ## Factor XI: logs to stdout, as an event stream
@@ -173,6 +183,15 @@ A related hardening that follows: with logs on stdout and config in the environm
 ## The full local stack — `compose.yaml`
 
 The capstone deploys `notes` to Kubernetes against Postgres, Jaeger, Prometheus, and Grafana. Before trusting the cluster, prove the image composes with its dependencies locally. A `compose.yaml` at the repo root brings the lot up, wired by environment variables, so the same image you ship to `kind` next week runs against the same dependency *shape* it will meet there:
+
+```mermaid
+flowchart LR
+  PG["Postgres 16"] -->|"health check gate"| N["notes service"]
+  N -->|"trace export"| J["Jaeger OTLP receiver"]
+  N -->|"metrics endpoint"| P["Prometheus scrape"]
+  P -->|"queries"| G["Grafana dashboard"]
+```
+*The compose stack wires notes to its dependencies the same way the cluster will next week.*
 
 ```yaml
 # compose.yaml — the full local stack: notes + Postgres + observability.

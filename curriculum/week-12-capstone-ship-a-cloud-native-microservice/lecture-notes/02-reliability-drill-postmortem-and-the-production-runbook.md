@@ -23,6 +23,14 @@ The capstone requires you to run **one** reliability drill on yourself and write
 
 Pick the one that best stresses *your* domain. A write-heavy service makes the rolling-deploy-under-load drill interesting (an interrupted write is worse than an interrupted read). A read-heavy service with a slow query makes the dependency-outage drill interesting. The drill is not a demo of success — it is an experiment, and the postmortem documents what actually happened, including anything that surprised you.
 
+```mermaid
+flowchart TD
+  A{"What does your domain stress most"} -->|"write-heavy"| B["Rolling deploy under load"]
+  A -->|"read-heavy with a slow query"| C["Dependency outage"]
+  A -->|"capacity is the risk"| D["Saturation and load shed"]
+```
+*Pick the drill that best exercises the failure mode your domain actually has.*
+
 ## Writing the postmortem
 
 A postmortem is a ~3–5-page document with a fixed structure. The discipline is **blameless and honest** — it documents the failure and what the system did, not "and then everything worked perfectly." The SRE-workbook structure, adapted:
@@ -65,6 +73,15 @@ accounted for. A lower ReadyToTrip threshold would shorten that window."
 - [ ] Add a Prometheus alert on go_goroutines climbing (a wedge early-warning).
 - [ ] Document the recovery time (~8s) in the runbook's outage section.
 ```
+
+```mermaid
+stateDiagram-v2
+  Closed --> Open : failures cross threshold
+  Open --> HalfOpen : recovery timer elapses
+  HalfOpen --> Closed : trial request succeeds
+  HalfOpen --> Open : trial request fails
+```
+*The breaker's state machine from the drill: it opened on repeated failures, then closed again once a trial request against the restored Postgres succeeded.*
 
 The two sections graders read hardest are **what each mechanism did** (do you understand *why* it survived, or did it just happen to?) and **what surprised you / went wrong** (a postmortem with no honest finding is not a real drill). Citation: <https://sre.google/workbook/postmortem-culture/>.
 

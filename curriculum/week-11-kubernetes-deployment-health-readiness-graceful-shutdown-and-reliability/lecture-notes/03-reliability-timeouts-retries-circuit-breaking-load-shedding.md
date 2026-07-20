@@ -139,6 +139,16 @@ A circuit breaker stops you from hammering a dependency that is clearly down. It
 - **Open** (tripped): calls **fail fast** immediately — no request is even sent — for a cooldown period. This is the point: instead of every request waiting for a timeout against a dead dependency (and piling up goroutines), the breaker returns an error instantly, so the service stays responsive and the dead dependency gets a rest.
 - **Half-open** (testing): after the cooldown, a trial request is let through; if it succeeds, the breaker closes (recovered); if it fails, it re-opens (still down).
 
+```mermaid
+stateDiagram-v2
+  [*] --> Closed
+  Closed --> Open: failure rate exceeds threshold
+  Open --> HalfOpen: cooldown elapses
+  HalfOpen --> Closed: trial succeeds
+  HalfOpen --> Open: trial fails
+```
+*The breaker's three states: pass calls through, fail fast while cooling down, then test recovery with one trial.*
+
 Using `sony/gobreaker`:
 
 ```go
@@ -222,6 +232,18 @@ The four patterns are not alternatives; they layer:
 ```
 
 Read inward: shed what you cannot serve, bound what you accept, fail fast on a dead dependency, retry a transient blip with jitter, and time-bound the call itself. Each pattern handles a different failure; together they are the difference between a service that contains a dependency's failure and one that amplifies it into its own outage — which is exactly what the dependency-outage drill (challenge-02) makes you prove.
+
+```mermaid
+flowchart LR
+  IN["Inbound request"] --> SHED{"Load shed check"}
+  SHED -->|"Over capacity"| REJECT["503 fast"]
+  SHED -->|"Accepted"| HANDLER["Handler with deadline"]
+  HANDLER --> BREAKER{"Circuit breaker"}
+  BREAKER -->|"Open"| FAIL["Fail fast"]
+  BREAKER -->|"Closed"| RETRY["Retry with backoff and jitter"]
+  RETRY --> CALL["Downstream call with its own deadline"]
+```
+*The four patterns layered: shed excess, bound the request, fail fast on a dead dependency, then retry transient blips.*
 
 ## What we built
 

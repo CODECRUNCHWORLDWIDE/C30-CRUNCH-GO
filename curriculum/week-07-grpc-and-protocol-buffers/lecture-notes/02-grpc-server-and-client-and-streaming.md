@@ -26,6 +26,15 @@ service NotesService {
 - **Client-streaming** — a *stream* of requests, one response. "Bulk import, give me a summary."
 - **Bidirectional** — both sides stream, independently. "Live sync session."
 
+```mermaid
+flowchart TD
+  A["gRPC call shapes"] --> B["Unary: one request, one response"]
+  A --> C["Server-streaming: one request, many responses"]
+  A --> D["Client-streaming: many requests, one response"]
+  A --> E["Bidirectional: many requests, many responses"]
+```
+*All four call types ride the same HTTP/2 framing but generate distinct Go method signatures.*
+
 The choice is a *design* decision, not a transport one — all four ride the same HTTP/2 framing — but each generates a distinct Go method signature, and picking wrong costs a refactor. The rest of this section writes each one against an in-memory store so the code runs without Postgres; §6 swaps the store for the Week-6 repository.
 
 ### 2.1 Unary
@@ -330,6 +339,17 @@ Here is the architecture this week is built to demonstrate. Both transports are 
   gRPC client →│ grpc server (this week)  │┘
                 └─────────────────────────┘
 ```
+
+```mermaid
+flowchart LR
+  RC["REST client"] --> CH["chi handler Week 5"]
+  GC["gRPC client"] --> GS["grpc server this week"]
+  CH --> SVC["service.Service"]
+  GS --> SVC
+  SVC --> REPO["repository Week 6"]
+  REPO --> PG["Postgres"]
+```
+*Two transport-specific handlers sit in front of one shared service and repository layer.*
 
 `service.Service` is constructed *once*, and both front doors receive the same pointer:
 

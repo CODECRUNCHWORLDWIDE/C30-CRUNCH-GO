@@ -30,6 +30,18 @@ Voice-over required, no marketing edits. The point is not to impress with produc
          without me." One sentence. Stop at 5:00.
 ```
 
+```mermaid
+flowchart LR
+  A["0m00s Scope sentence"] --> B["0m30s Dual transport"]
+  B --> C["1m30s Postgres write"]
+  C --> D["2m00s Trace in Jaeger"]
+  D --> E["2m45s Grafana dashboard"]
+  E --> F["3m15s Rolling deploy"]
+  F --> G["4m15s Graceful drain"]
+  G --> H["4m45s Close on runbook"]
+```
+*The five-minute demo moves in one continuous take from the scope sentence to the runbook close.*
+
 Two disciplines. **Say the scope sentence first** — it is the thesis of the whole capstone, and a reviewer who hears it knows what to watch for. **Show, do not assert** — every claim ("they return the same data," "zero dropped requests," "the trace ties to the log") is demonstrated on screen, not narrated as a fact to trust. The video is the artifact a hiring manager opens; it should make them want to read the repo. Citation: the demo-discipline mindset from the SRE workbook's incident-response and communication chapters.
 
 ## The live defense
@@ -104,6 +116,17 @@ func (s *Service) stream(ctx context.Context, ids []string) <-chan Result {
 "The goroutine could leak if the caller stops reading — the `select` on `ctx.Done()` is what lets it exit instead of blocking forever on the send. The producer closes the channel because it is the sender (the who-closes rule). `go test -race` and a goroutine-count assertion in the test prove it does not leak — though `-race` proves a race *did not occur in that run*, not that none *can*; for leak-proof I assert the goroutine count returns to baseline after the call." That answer names the bug, the fix, the rule, and the limit of the tool — exactly what a senior interviewer is listening for.
 
 **"Walk me through your graceful-shutdown order — why is the pool closed last?"** Point at the Week 11 `run` skeleton and narrate the order: "On `SIGTERM`, I fail readiness first so the Service stops routing, wait for the endpoint removal to propagate, then `http.Server.Shutdown` drains in-flight HTTP requests, then gRPC `GracefulStop` drains RPCs (wrapped in a `select` with the budget so a stuck stream cannot hold me past the grace period), then I flush the trace exporter, and the pool is closed *last* — by a deferred `Close` after the servers stop — because an in-flight handler still holds a connection from it; close the pool first and I break the very requests I am draining. The budget is 20s under a 30s grace period so I always exit before `SIGKILL`." That is the close-order rule, the budget arithmetic, and the reason, in one breath.
+
+```mermaid
+flowchart TD
+  A["SIGTERM received"] --> B["Readiness flips to 503"]
+  B --> C["Wait for endpoint removal to propagate"]
+  C --> D["HTTP Server Shutdown drains requests"]
+  D --> E["gRPC GracefulStop drains RPCs"]
+  E --> F["Flush trace exporter"]
+  F --> G["Close pool last"]
+```
+*The pool closes last because an in-flight handler still holds a connection from it until every drain step finishes.*
 
 The pattern for every defense answer: name the thing, point at the code, state the trade or the rule, and name what it does *not* cover. "It works, trust me" is the answer that loses points the work earned.
 

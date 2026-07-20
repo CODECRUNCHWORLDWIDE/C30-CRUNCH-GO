@@ -195,6 +195,20 @@ func main() {
 
 Eight items, each 100 ms of "work," across four workers: roughly 200 ms wall-clock instead of the 800 ms a single stage would take. The results arrive in nondeterministic order (which worker finished first?), which is the price of parallelism — if you need ordered output, you carry an index with each value and re-sort at the sink. Every goroutine has a guaranteed exit: `gen` closes `source`, so each worker's `range` ends and fires its deferred close; each forwarder's `range` ends when its worker's channel closes; the merge closer closes `out` after `wg.Wait()`; `main` ends its `range`. No leaks, no `time.Sleep` for coordination. Run it under `go test -race` and `goleak` and it is clean. Citation: <https://go.dev/blog/pipelines>, <https://go.dev/doc/effective_go#concurrency>.
 
+```mermaid
+flowchart LR
+  Gen["gen source"] --> W1["slowSquare worker 1"]
+  Gen --> W2["slowSquare worker 2"]
+  Gen --> W3["slowSquare worker 3"]
+  Gen --> W4["slowSquare worker 4"]
+  W1 --> Merge["merge fan in"]
+  W2 --> Merge
+  W3 --> Merge
+  W4 --> Merge
+  Merge --> Sink["main ranges results"]
+```
+*Fan-out spreads one source across four workers; fan-in folds their outputs back into one sink.*
+
 ## 5. "Share memory by communicating" — and its limits
 
 The Go proverb, from the codelab of the same name, is:
@@ -256,6 +270,17 @@ Three problems, the right tool for each:
 3. **"Tell every worker to stop because the deadline passed."** Channel (a closed `done` channel broadcasts to all selectors at once) — and next week, `context`, which is the standardised version of exactly this signal.
 
 The thread through all three: pick the primitive that matches the *shape* of the coordination, not the one a proverb made you feel guilty about not using.
+
+```mermaid
+flowchart TD
+  Q["Is there concurrency to coordinate"] -->|No| Neither["Plain function call"]
+  Q -->|Yes| Q2["Transferring a value or ownership between goroutines"]
+  Q2 -->|Yes| Channel["Use a channel"]
+  Q2 -->|No| Q3["Guarding small shared state with a short critical section"]
+  Q3 -->|Yes| Mutex["Use a sync Mutex"]
+  Q3 -->|No| Channel
+```
+*The decision tree behind the channel versus mutex versus neither matrix.*
 
 ## 7. A note on channel-of-channels and ordered results
 

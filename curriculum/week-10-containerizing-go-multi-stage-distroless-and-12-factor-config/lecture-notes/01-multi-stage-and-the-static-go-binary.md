@@ -33,6 +33,16 @@ It works. It is also wrong in three ways. The final image is built `FROM golang:
 
 A multi-stage build uses one stage to *build* and a second, lean stage to *run*, copying only the compiled binary across the stage boundary. The toolchain stays in the discarded build stage; the final image is `FROM` a minimal runtime base.
 
+```mermaid
+flowchart LR
+  A["Build stage golang 1.22"] --> B["go mod download cached layer"]
+  B --> C["go build CGO disabled static binary"]
+  C --> D["Copy binary only across stage boundary"]
+  D --> E["Runtime stage distroless static nonroot"]
+  E --> F["Final image about 18MB"]
+```
+*The build stage compiles the static binary; only the binary crosses into the lean runtime stage.*
+
 ```dockerfile
 # syntax=docker/dockerfile:1
 

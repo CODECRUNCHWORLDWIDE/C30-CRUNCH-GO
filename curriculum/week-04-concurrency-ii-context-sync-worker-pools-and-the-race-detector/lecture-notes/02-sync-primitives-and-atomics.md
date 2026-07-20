@@ -118,6 +118,16 @@ Three properties:
 2. **It runs even if `f` panics** in the sense that the `Once` is marked "done" and will never run `f` again — so a panicking initialiser leaves you with a half-built value and no retry. If initialisation can fail, prefer an explicit constructor with error return over lazy `Once`.
 3. **The Go 1.21+ helpers `sync.OnceFunc`, `sync.OnceValue`, and `sync.OnceValues`** wrap the common shapes: `OnceValue(func() T) func() T` gives you a function that computes a value once and returns the cached result thereafter. Reach for them when you would otherwise write the `Once`-plus-field boilerplate by hand. Citation: <https://pkg.go.dev/sync#OnceValue>.
 
+```mermaid
+stateDiagram-v2
+  [*] --> Unstarted
+  Unstarted --> Running: first Do call runs f
+  Running --> Running: later callers block
+  Running --> Done: f returns
+  Done --> Done: later Do calls return at once
+```
+*sync.Once moves through Unstarted, Running, and Done exactly once, no matter how many goroutines call Do.*
+
 ## 5. `sync.WaitGroup` — recap and the one rule that bites
 
 You met `WaitGroup` in Week 3. The recap, plus the rule people get wrong:
@@ -243,6 +253,16 @@ func Run(ctx context.Context, items []int, limit int, do func(context.Context, i
 ```
 
 Two teaching points: **(a)** `m.peak` uses a CAS retry loop — the canonical lock-free "update if larger" — because `current.Add(1)` returning a value does not, by itself, let two goroutines agree on the maximum. **(b)** After `Run`, `m.peak.Load()` must be `<= limit`. That is your *proof* the bound held; Exercise 2 asserts exactly this. If `peak > limit`, your bound is broken. Citation: <https://pkg.go.dev/sync/atomic#Int64.CompareAndSwap>.
+
+```mermaid
+flowchart TD
+  Start["Load current peak"] --> Compare{"cur less or equal old"}
+  Compare -->|yes| Done["break out of loop"]
+  Compare -->|no| CAS{"CompareAndSwap old to cur"}
+  CAS -->|succeeds| Done
+  CAS -->|fails another writer won| Start
+```
+*enter retries the load compare and swap loop until it wins the race to record a new peak.*
 
 ## 9. Exercise pointer
 

@@ -21,6 +21,17 @@ The memory model defines a partial order called **happens-before**. If event A h
 
 If you mutate shared state in goroutine A and read it in goroutine B, and you cannot point at a happens-before edge between the write and the read, **you have a race** — even if it "works" today, even if it passes a thousand test runs. The fix is always the same in kind: add the missing synchronisation. Recall from Lecture 1 why the `errgroup` worker pool writing `results[i]` is race-free: each goroutine writes a distinct index (no two goroutines touch the same location), and `g.Wait()` establishes a happens-before edge between every write and the subsequent read. Both conditions hold; no race. Citation: <https://go.dev/ref/mem#synchronization>.
 
+```mermaid
+sequenceDiagram
+  participant A as Goroutine A
+  participant B as Goroutine B
+  A->>A: write shared data
+  A->>B: channel send
+  Note over A,B: happens-before edge
+  B->>B: read shared data safely
+```
+*A channel send happens-before the receive that completes it, so goroutine B is guaranteed to see A's writes.*
+
 ## 3. A real race, reproduced
 
 Here is the simplest race that bites real code — an unsynchronised counter incremented from many goroutines:
@@ -157,6 +168,17 @@ for n := range results {
 No goroutine mutates shared state; each *sends* its contribution and a single goroutine sums them. Heavier than the atomic for a bare counter, but the right shape when the per-item work produces a richer value than `1`.
 
 Run each fix under `-race`; all three report `0 data race(s)`. Which to ship: **Fix 2 (atomic) for a counter.** Fix 1 (mutex) if the shared state grows beyond one scalar. Fix 3 if you are already collecting per-item results anyway. Exercise 3 walks you through Fix 1 and Fix 2 and benchmarks both.
+
+```mermaid
+flowchart TD
+  Q["Shared state to protect"] --> Q1{"Is it a single scalar"}
+  Q1 -->|yes| Atomic["Fix 2: use an atomic"]
+  Q1 -->|no| Q2{"Fields must change together"}
+  Q2 -->|yes| Mutex["Fix 1: use a mutex"]
+  Q2 -->|no| Q3{"Already collecting per item results"}
+  Q3 -->|yes| Channel["Fix 3: aggregate over a channel"]
+```
+*Which race fix to ship: atomic for one scalar, mutex for a group that changes together, channel aggregation when already collecting per-item values.*
 
 ## 7. Benchmarking with `testing.B`
 

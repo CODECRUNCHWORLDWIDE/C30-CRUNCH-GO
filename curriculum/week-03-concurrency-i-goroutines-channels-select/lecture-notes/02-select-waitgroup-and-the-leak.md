@@ -214,6 +214,19 @@ func fetchWithTimeout() (int, error) {
 
 Every call to `fetchWithTimeout` that times out leaks one goroutine, parked forever on `result <- 42`. The function *looks* correct and tests pass on the happy path. This is the live reproduction the week's lecture promised: a stuck `select` (well, a stuck *send* after a `select` gave up) that leaks silently.
 
+```mermaid
+sequenceDiagram
+  participant Caller
+  participant Worker as Worker goroutine
+  Caller->>Worker: go func starts
+  Caller->>Caller: select waits on result or timeout
+  Note over Worker: sleeps two seconds
+  Caller->>Caller: timeout fires first, function returns
+  Worker->>Worker: wakes, tries result send
+  Note over Worker: blocks forever, no receiver left
+```
+*The timeout wins the select while the worker's later send blocks forever with nobody left to receive it.*
+
 ### 4.2 Detecting the leak with `runtime.NumGoroutine`
 
 The crudest detector is a count. `runtime.NumGoroutine()` returns the number of goroutines that currently exist; measure it before and after, allowing a moment for scheduling to settle:
@@ -387,6 +400,18 @@ func main() {
 ```
 
 Every goroutine has two guaranteed exits: jobs-drained, or done-signalled. `close(done)` broadcasts to all of them at once. The feeder also watches `done` so it does not block on `jobs <- j` after the workers have left. This is a leak-free, deadline-bounded pool built entirely from this week's primitives — and it is one `context.Context` away from the production version you build in Week 4.
+
+```mermaid
+flowchart TD
+  Workers["3 workers launched, WaitGroup Add before go"] --> Sel["Each worker selects on jobs or done"]
+  Feeder["Feeder sends jobs"] --> Sel
+  Deadline["Deadline timer at 300ms"] --> DoneClose["Closes done channel"]
+  DoneClose --> Sel
+  DoneClose --> Feeder
+  Sel --> Exit["Worker returns and calls wg Done"]
+  Exit --> Wait["wg Wait unblocks, all stopped cleanly"]
+```
+*Every worker exits via jobs drained or the done broadcast, whichever comes first.*
 
 ## 6. Exercise pointer
 

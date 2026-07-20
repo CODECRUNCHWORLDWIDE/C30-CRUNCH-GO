@@ -67,6 +67,20 @@ A Secret is base64-encoded, not encrypted, at rest by default — it keeps the c
 
 The Deployment declares the desired state — how many replicas of which image, with what config, what probes, what resources — and Kubernetes reconciles reality to it. The Service gives the pods a stable in-cluster name and load-balances across them.
 
+```mermaid
+flowchart LR
+  CM["ConfigMap non-secret config"] --> DEP["Deployment"]
+  SEC["Secret database URL"] --> DEP
+  DEP --> POD1["Pod replica 1"]
+  DEP --> POD2["Pod replica 2"]
+  DEP --> POD3["Pod replica 3"]
+  SVC["Service"] --> POD1
+  SVC --> POD2
+  SVC --> POD3
+  CLIENT["Client traffic"] --> SVC
+```
+*Config and secrets feed the Deployment, which owns the pods; the Service load-balances client traffic across them.*
+
 ```yaml
 # deploy/k8s/deployment.yaml
 apiVersion: apps/v1
@@ -177,6 +191,16 @@ This is the conceptual heart of the lecture, and the single most-probed question
 ```
 
 The failure of liveness is a **restart**. The failure of readiness is **removal from the load balancer** (no restart). That difference is everything.
+
+```mermaid
+flowchart TD
+  P["Probe fails"] --> L{"Which probe"}
+  L -->|"Liveness"| R["Kubelet restarts container"]
+  L -->|"Readiness"| E["Pod removed from Service endpoints"]
+  E --> W["Pod keeps running, no restart"]
+  R --> N["Assumes process is wedged"]
+```
+*Liveness failure restarts the container; readiness failure only pulls the pod from traffic.*
 
 **Why liveness must NOT check the database.** Suppose your liveness probe queried Postgres. Now Postgres has a 30-second hiccup (a failover, a brief network blip). Every pod's liveness probe fails. The kubelet restarts *every pod* — simultaneously, in a restart storm — even though every pod's *process* was perfectly healthy. You have converted a transient dependency blip into a self-inflicted outage: all your pods are now cold-starting at once, against a database that is still recovering, and the restart did nothing to fix the database. The rule: **liveness depends on nothing but the process itself.** A liveness probe should fail only when the process is genuinely wedged (a deadlock, a goroutine leak that exhausted memory) and a restart is the right cure.
 

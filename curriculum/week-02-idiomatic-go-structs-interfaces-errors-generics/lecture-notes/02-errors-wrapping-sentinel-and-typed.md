@@ -67,6 +67,13 @@ loading config "app.toml": ...   (our fmt.Errorf, wraps ↓)
 
 A wrapped error implements `Unwrap() error`, returning the error it wraps. `errors.Unwrap(err)` peels one layer; `errors.Is`/`errors.As` (next) walk the whole chain for you, so you rarely call `Unwrap` directly. Citation: <https://pkg.go.dev/errors#Unwrap> and <https://go.dev/blog/go1.13-errors>.
 
+```mermaid
+flowchart TD
+  A["fmt Errorf loading config wraps err"] --> B["os PathError open app dot toml"]
+  B --> C["fs ErrNotExist the sentinel at the bottom"]
+```
+*Each `%w` layer wraps the one beneath it; the sentinel sits at the bottom of the chain.*
+
 ### 4.1 `%w` vs `%v` — the abstraction-boundary decision
 
 `%w` keeps the cause *inspectable* by callers; `%v` formats it into the message and then *hides* it (the chain stops there). The choice is an API-design decision:
@@ -177,6 +184,15 @@ This is the design call you make on every error you define. The matrix:
 | **Cost** | Adds it to your API surface (callers depend on the value) | Adds it to your API surface (callers depend on the type + fields) |
 
 Reach for a **sentinel** when "not found" / "already exists" / "closed" is all the caller needs — a single comparable value, tested with `errors.Is`. Reach for a **typed error** when the caller needs to *do something with the specifics* — retry after `ee.RetryAfter`, report which `ee.Key` expired, return HTTP `ee.Status`. Both become part of your package's public contract the moment a caller depends on them, so define them deliberately and document them. In Lab 02 you build *both*: a sentinel `ErrMiss` for "key not in cache" and a typed `*ExpiredError` carrying the key and expiry time. Citation: <https://go.dev/blog/error-handling-and-go> and <https://go.dev/blog/go1.13-errors>.
+
+```mermaid
+flowchart TD
+  Q["Does the caller need details about the failure"] -->|"No just which failure"| SE["Sentinel error, errors dot New"]
+  Q -->|"Yes specific data like key or retry time"| TY["Typed error, struct implementing error"]
+  SE --> SC["Checked with errors dot Is"]
+  TY --> TC["Checked with errors dot As"]
+```
+*Picking sentinel vs typed comes down to whether the caller needs data, not just identity.*
 
 ## 8. `panic` is still not error handling
 

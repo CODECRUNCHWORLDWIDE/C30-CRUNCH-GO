@@ -33,6 +33,12 @@ srv := grpc.NewServer(
 
 **Order matters and it is outside-in.** The first interceptor in the chain is outermost: its pre-handler code runs first and its post-handler code runs last. Put `recoveryUnary` first so it wraps everything — including the other interceptors — and can catch a panic from any of them. The chaining behavior is documented at <https://pkg.go.dev/google.golang.org/grpc#ChainUnaryInterceptor>.
 
+```mermaid
+flowchart LR
+  A["recoveryUnary"] --> B["requestIDUnary"] --> C["loggingUnary"] --> D["handler"]
+```
+*Interceptors wrap outside-in: recoveryUnary is outermost so it can catch a panic from every interceptor and the handler inside it.*
+
 ## 2. A logging interceptor
 
 This is the observability baseline: one structured log line per RPC, with method, duration, peer, and the resulting status code.
@@ -251,6 +257,17 @@ func mapError(err error) error {
 ```
 
 The `default` arm is the safety floor: an error you forgot to map becomes `Internal` with no detail leaked — and the `slog.Error` ensures you *see* the gap in your logs and add a case. The exact same domain sentinels, in your chi handler, map to HTTP 404/409/400/409/500. The service layer authored them once; the two adapters translate.
+
+```mermaid
+flowchart TD
+  A["domain error"] --> B{"errors.Is check"}
+  B -->|"ErrNotFound"| C["codes.NotFound"]
+  B -->|"ErrAlreadyExists"| D["codes.AlreadyExists"]
+  B -->|"ErrInvalidInput"| E["codes.InvalidArgument"]
+  B -->|"ErrConflict"| F["codes.Aborted"]
+  B -->|"unmapped"| G["codes.Internal plus log"]
+```
+*mapError translates service-layer sentinel errors into precise gRPC status codes, with an Internal fallback so nothing silently disappears.*
 
 ## 7. Rich error details with `errdetails`
 

@@ -38,6 +38,24 @@ Stack three middlewares around a handler and you get an onion. The request trave
         └────────────────────────────────────────────────────────┘
 ```
 
+```mermaid
+sequenceDiagram
+  participant Client
+  participant RequestID
+  participant Logger
+  participant Recoverer
+  participant Handler
+  Client->>RequestID: Request
+  RequestID->>Logger: Request with ID on context
+  Logger->>Recoverer: Request
+  Recoverer->>Handler: Request
+  Handler-->>Recoverer: Response
+  Recoverer-->>Logger: Response
+  Logger-->>RequestID: Response logged
+  RequestID-->>Client: Response with X-Request-Id header
+```
+*The request travels inward through each layer, the response travels back outward through the same layers in reverse.*
+
 You compose them with a helper that wraps in order:
 
 ```go

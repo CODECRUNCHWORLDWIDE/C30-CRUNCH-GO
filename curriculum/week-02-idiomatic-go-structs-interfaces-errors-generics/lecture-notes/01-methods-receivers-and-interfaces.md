@@ -126,6 +126,16 @@ func main() {
 
 `&Loud{...}` satisfies `Stringer`; the *value* `Loud{...}` does not, because `String` has a pointer receiver and so is not in `Loud`'s method set. The auto-`&` from §3.1 does **not** rescue you here, because the value being assigned to the interface is a copy with no guaranteed address. This is why you so often see `var x Iface = &T{}` rather than `var x Iface = T{}`. Predict this in Exercise 1; it is the single highest-yield fact this week. Citation: <https://go.dev/ref/spec#Method_sets>.
 
+```mermaid
+flowchart LR
+  A["Loud has no value receiver methods"] --> T["Method set of Loud"]
+  B["String has a pointer receiver"] --> PT["Method set of Pointer to Loud"]
+  A --> PT
+  PT -->|"satisfies"| S["Stringer interface"]
+  T -.->|"does not satisfy"| S
+```
+*Why `&Loud{}` satisfies `Stringer` but the bare value `Loud{}` does not.*
+
 ## 5. Interfaces are small, implicit, and consumer-defined
 
 An interface is a set of method signatures. A type satisfies it by *having* those methods — there is no declaration, no `implements`:
@@ -272,6 +282,14 @@ This *looks* like inheritance, but it is not, and the difference is examinable:
 - There is **no subtyping**. A `Server` is **not** a `Logger`; you cannot pass a `Server` where a `Logger` is expected (you can pass `s.Logger`). Embedding promotes *methods*, it does not establish an *is-a* relationship.
 - There is **no virtual dispatch / no overriding in the OO sense**. If `Server` also declares `Log`, it *shadows* the embedded one; the embedded `Logger.Log` does not magically call `Server.Log`. Method resolution is static.
 - It is **"has-a" wired to read like "is-a"** for convenience: `Server` *has a* `Logger` and borrows its method set. This is composition with sugar.
+
+```mermaid
+flowchart TD
+  L["Logger has prefix field and Log method"] --> S["Server embeds Logger with no field name"]
+  S --> P["Log method promoted onto Server"]
+  S --> AD["Server also declares its own addr field"]
+```
+*Embedding wires "has-a" so the outer type borrows the inner type's method set.*
 
 Embedding interfaces composes them — this is exactly how `io.ReadWriter` is built:
 

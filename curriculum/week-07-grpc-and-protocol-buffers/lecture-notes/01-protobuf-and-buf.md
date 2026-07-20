@@ -279,6 +279,20 @@ buf breaking --against '.git#branch=main'  # diff against main, fail on wire-bre
 
 `buf breaking` is the safety net Challenge 2 builds on: it reads the *previous* version of your protos (from a git ref, a tarball, or another directory) and refuses any change that would break the wire — a reused field number, a changed type, a deleted-without-reserving field. Its overview is at <https://buf.build/docs/breaking/overview/>. Wiring this into CI means a wire-incompatible schema change cannot merge.
 
+```mermaid
+flowchart LR
+  A["proto files"] --> B["buf lint"]
+  B --> C["buf build"]
+  C --> D["buf generate"]
+  D --> E["protoc-gen-go"]
+  D --> F["protoc-gen-go-grpc"]
+  E --> G["Go message structs"]
+  F --> H["Go client and server interfaces"]
+  C --> I["buf breaking against main"]
+  I --> J["fail build on wire break"]
+```
+*The buf pipeline: lint and build validate the schema, generate emits Go via two plugins, and breaking guards the wire contract against main.*
+
 ## 9. The generated Go shape
 
 After `buf generate`, `gen/notes/v1/` holds `notes.pb.go` (messages) and `notes_grpc.pb.go` (service). You never edit these. Here is the *shape* — not byte-for-byte, but the surface you program against — for the `Note` message and `NotesService`.

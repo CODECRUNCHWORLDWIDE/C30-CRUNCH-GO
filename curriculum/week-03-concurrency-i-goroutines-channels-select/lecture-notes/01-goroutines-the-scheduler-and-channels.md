@@ -51,6 +51,16 @@ The runtime multiplexes your goroutines onto a small pool of OS threads with its
 
 A goroutine (G) runs on a thread (M) only while it is attached to a processor (P). When a goroutine blocks — on a channel operation, a mutex, a system call, network I/O — the scheduler parks it and runs another runnable goroutine on that P, so the thread is never idle while there is work to do. When a goroutine makes a blocking *system call*, the runtime can hand its P to another thread so other goroutines keep running. The scheduler is *cooperative-ish with preemption*: since Go 1.14 the runtime can preempt a goroutine that has run too long without yielding, so a tight CPU loop no longer starves its neighbours. You do not manage any of this; you write `go f()` and reason about coordination, and the scheduler handles placement. What you *do* control is `GOMAXPROCS`:
 
+```mermaid
+flowchart LR
+  Gs["Many goroutines"] --> P["Processor P holds a run queue"]
+  P --> M["OS thread M"]
+  M --> Core["CPU core"]
+  Block["Goroutine blocks on channel or syscall"] --> Park["Scheduler parks it, runs next G"]
+  Park --> P
+```
+*The GMP scheduler multiplexes many cheap goroutines onto a small pool of OS threads.*
+
 ```go
 import "runtime"
 
@@ -333,6 +343,20 @@ func main() {
 ```
 
 Read that program against the three reviewer questions: **who closes each channel** (the feeder closes `in`; the closer goroutine closes `out`), **who waits for whom** (`main` waits on the `range out` loop, which ends when the closer closes `out`, which happens after `wg.Wait()` sees every worker done), and **what happens to every goroutine** (the feeder returns after closing `in`; each worker returns when `in` is drained; the closer returns after `wg.Wait()`; `main` returns after the `range out`). Every goroutine has a guaranteed exit. That is a leak-free design, and it is the exact skeleton of Lecture 3's fan-out/fan-in and of the mini-project. We did not write a single `time.Sleep`.
+
+```mermaid
+flowchart LR
+  Feeder["Feeder closes in"] --> InCh["in channel"]
+  InCh --> W1["Worker 1"]
+  InCh --> W2["Worker 2"]
+  InCh --> W3["Worker 3"]
+  W1 --> OutCh["out channel"]
+  W2 --> OutCh
+  W3 --> OutCh
+  Closer["Closer waits then closes out"] --> OutCh
+  OutCh --> MainR["main ranges out"]
+```
+*Who closes each channel and who waits for whom in the leak-free collection pattern.*
 
 ## 8. Exercise pointer
 

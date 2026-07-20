@@ -32,6 +32,19 @@ The scope review is where you confirm the domain is the right size: one bounded 
 
 **The architecture diagram must match what you demo.** A diagram showing a Redis cache you never built, or omitting the gRPC surface you do demo, is the first thing a reviewer catches. Draw the system as it *is* — the SYLLABUS capstone diagram (Kubernetes box with the Deployment, ConfigMap/Secret, the pgx-to-Postgres edge, the OTel-to-Jaeger and metrics-to-Prometheus-to-Grafana edges, the gRPC and REST ingress) is the template; make yours reflect your service.
 
+```mermaid
+flowchart TD
+  Clients["gRPC and REST clients"] --> K8s["Kubernetes Deployment and Service"]
+  K8s --> Pod["notesd pod"]
+  CM["ConfigMap and Secret"] --> Pod
+  Pod --> PG["Postgres via pgx"]
+  Pod --> OTel["OTel exporter"]
+  OTel --> Jaeger["Jaeger traces"]
+  Pod --> Prom["Prometheus metrics"]
+  Prom --> Grafana["Grafana dashboard"]
+```
+*The deployed architecture the diagram must match: one pod, one Postgres edge, and the trace and metrics paths into Jaeger and Grafana.*
+
 ## Architecture decision records
 
 An ADR is a short, dated, immutable record of one architecturally significant decision. The format (Nygard's, the most common) is four parts:
@@ -117,6 +130,14 @@ hey -z 60s -c 30 -m POST -D body.json http://localhost:8080/notes
 ```
 
 The N+1 — one query per note to fetch its tags — is the finding: the span tree shows forty small `SELECT tags` spans under the list call, each fast individually but slow in aggregate, and the `SELECT notes` itself slow because it has no index on the filter column.
+
+```mermaid
+flowchart TD
+  A["GET notes - 120ms total"] --> B["notes.List service - 118ms"]
+  B --> C["pgx Query SELECT notes - 115ms"]
+  B --> D["pgx Query SELECT tags - 40 calls at 2ms each"]
+```
+*The span tree localises the p99 outlier to one slow query plus a forty-call N+1 loop.*
 
 **Step 4 — fix and re-measure.** The fix is two changes: add the missing index (a migration) and collapse the N+1 into one query (a `JOIN` or a `WHERE tag_note_id = ANY($1)`). Re-run the load and capture the before/after:
 

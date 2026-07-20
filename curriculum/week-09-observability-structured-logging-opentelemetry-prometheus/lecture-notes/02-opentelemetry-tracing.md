@@ -17,6 +17,14 @@ The vocabulary you must hold (citation: <https://opentelemetry.io/docs/concepts/
 - **Events** — timestamped annotations within a span ("cache miss," "retry").
 - **Status** — `Unset`, `Ok`, or `Error`; you set `Error` on a span that failed.
 
+```mermaid
+flowchart TD
+  A["Root span: HTTP request"] --> B["Span: service.GetNote"]
+  B --> C["Span: db.query.GetNote"]
+  A --> D["Span: outbound call"]
+```
+*One trace as a causal tree of spans - the waterfall Jaeger draws.*
+
 ## 2. The API/SDK split, and the four packages you import
 
 OpenTelemetry-Go, like slog, separates a **front-end API** from a **back-end SDK** (citation: <https://opentelemetry.io/docs/languages/go/>):
@@ -131,6 +139,16 @@ traceparent: 00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01
 ```
 
 Without a propagator set, the instrumentation libraries (`otelhttp`, `otelgrpc`) have nothing to inject or extract, and **the trace silently breaks at every service boundary** — each service starts a fresh root trace instead of continuing the caller's. This is the single most common OTel bug, and it produces no error: you just get disconnected one-service traces in Jaeger and wonder why nothing joins up. Set the propagator. We wrap it in a `CompositeTextMapPropagator` so it also carries baggage; if you do not use baggage, `propagation.TraceContext{}` alone is enough.
+
+```mermaid
+flowchart LR
+  Res["Resource: service name"] --> TP["TracerProvider"]
+  Prop["Propagator: W3C traceparent"] --> TP
+  TP --> BP["BatchSpanProcessor"]
+  BP --> Exp["OTLP gRPC exporter"]
+  Exp --> Jaeger["Jaeger"]
+```
+*Startup wiring: resource and propagator feed the TracerProvider, which batches spans out to Jaeger.*
 
 ## 4. Creating spans
 

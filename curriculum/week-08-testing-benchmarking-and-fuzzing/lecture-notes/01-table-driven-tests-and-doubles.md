@@ -40,6 +40,14 @@ if got.Title != "x" {
 }
 ```
 
+```mermaid
+flowchart TD
+  A["Assertion fails"] --> B{"Can the test continue meaningfully?"}
+  B -- No --> C["t.Fatalf: record and stop"]
+  B -- Yes --> D["t.Errorf: record and continue"]
+```
+*Choosing between t.Fatalf and t.Errorf comes down to whether the rest of the test can still run.*
+
 Second, **the failure message is for the human reading the CI log, not for you right now**. Always print the input, the got, and the want. `t.Errorf("Slugify(%q) = %q, want %q", in, got, want)` tells whoever reads the failure exactly what broke. `t.Error("wrong")` tells them nothing. The Go convention is `got, want` order, every time; the reader learns to expect it.
 
 Third, **there is no assertion library and you do not need one**. `if got != want { t.Errorf(...) }` is the assertion. For complex values you reach for `go-cmp` (Section 4), but the control flow is always a plain `if`. This is deliberate: the test reads like Go, not like a DSL, and a junior can follow it without learning a framework first.
@@ -345,6 +353,24 @@ Three properties make this the right tool:
 - **The interface is defined by the consumer.** `Repository` lives in the service package and lists exactly the methods the service uses — not every method the Postgres implementation happens to have. This is "accept interfaces, return structs": the service accepts the small interface, the Postgres struct satisfies it. A small consumer interface is trivial to fake.
 - **The fake is readable.** Anyone can open `fakeRepo` and see precisely what it returns. A generated mock with `mockRepo.EXPECT().GetByID(gomock.Any()).Return(note, nil).Times(1)` hides the behaviour behind a DSL and, worse, asserts *call counts and order* you usually did not mean to assert — making the test brittle to refactors that do not change behaviour.
 - **Fakes vs stubs vs mocks.** A *stub* returns canned values. A *fake* is a working in-memory implementation (our `fakeRepo` is a fake — it actually stores and retrieves). A *mock* records and asserts interactions. Reach for fakes by default; reach for a stub when you need one canned answer; reach for a mock only when the *interaction itself* is the thing under test (rare — e.g. "this code must call `Commit` exactly once"). For that narrow case, `go.uber.org/mock` (the maintained successor to `golang/mock`) is fine, but it is the exception, not the default.
+
+```mermaid
+classDiagram
+  class TestDouble
+  class Stub {
+    returns canned values
+  }
+  class Fake {
+    working in-memory implementation
+  }
+  class Mock {
+    records and asserts interactions
+  }
+  TestDouble <|-- Stub
+  TestDouble <|-- Fake
+  TestDouble <|-- Mock
+```
+*Three kinds of test double; fakes are the default, stubs and mocks are the exceptions.*
 
 ## 7. Testing HTTP handlers with `httptest`
 

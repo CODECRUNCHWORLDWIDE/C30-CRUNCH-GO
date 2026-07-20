@@ -29,6 +29,16 @@ The single most important structural fact about slog is that it has **two layers
 - A `*slog.Logger` is the **front end**. It is what your code calls: `logger.Info`, `logger.Error`, `logger.With`. It is cheap, it is safe for concurrent use, and it does almost no work itself — it builds a `slog.Record` (the message, level, time, and attributes) and hands it to its handler.
 - A `slog.Handler` is the **back end**. It is an interface, and it decides *what the log actually becomes*: the output format (text or JSON), where it goes (stdout, a file, a network socket), the minimum level, and any transformation of the attributes. The standard library ships two implementations, `slog.NewTextHandler` and `slog.NewJSONHandler`; you can write your own, and in Section 8 we do.
 
+```mermaid
+flowchart LR
+  Code["Your code"] --> Logger["slog Logger - front end"]
+  Logger --> Handler["slog Handler - back end"]
+  Handler --> Text["Text Handler - dev terminal"]
+  Handler --> JSON["JSON Handler - production"]
+  Handler --> Custom["Your own Handler - Section 8"]
+```
+*The Logger is a thin front end; the Handler it wraps decides format and destination.*
+
 The `Handler` interface is small — four methods (citation: <https://pkg.go.dev/log/slog#Handler>):
 
 ```go
@@ -374,6 +384,22 @@ func newRequestID() string {
 ```
 
 Three things to note. First, `statusRecorder` wraps the `http.ResponseWriter` so we can capture the status code the handler writes — `net/http` does not let you read it back, so you intercept `WriteHeader`. Second, `chi.RouteContext(r.Context()).RoutePattern()` gives you the *route template* (`/notes/{id}`), not the concrete path (`/notes/4f2`) — this matters enormously for metrics in Lecture 3, where labeling by the template keeps cardinality bounded and labeling by the concrete path explodes it. Third, the order: this middleware must run *before* anything that needs the request-scoped logger and *after* (inside of) the `otelhttp` handler from Lecture 2, so the span context is already populated when this middleware reads it.
+
+```mermaid
+sequenceDiagram
+  participant Client
+  participant Middleware as RequestLogger
+  participant Layer as Service layer
+  participant CH as ContextHandler
+  participant Out as JSON output
+  Client->>Middleware: HTTP request arrives
+  Middleware->>Middleware: mint request_id, derive reqLogger
+  Middleware->>Layer: ctx carries logger and request_id
+  Layer->>CH: InfoContext log call
+  CH->>CH: add trace_id from span context
+  CH->>Out: write one JSON line
+```
+*A request-scoped logger rides the context down to every layer, and the ContextHandler stamps trace_id on the way out.*
 
 ## 10. `slog.SetDefault` — the package-level logger
 

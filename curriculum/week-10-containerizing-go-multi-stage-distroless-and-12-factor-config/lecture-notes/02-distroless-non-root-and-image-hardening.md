@@ -43,6 +43,17 @@ The cost of distroless: `kubectl exec -it notes-pod -- sh` fails with "executabl
 
 For the rare genuine break-glass case, distroless ships `:debug` variants with a busybox shell, and Kubernetes 1.25+ has **ephemeral debug containers** (`kubectl debug -it notes-pod --image=busybox --target=notes`) that attach a debug container sharing the pod's namespaces without rebuilding your image. You keep the production image shell-less and attach a shell *to the pod* only when you genuinely need one. Citation: the Kubernetes ephemeral-containers doc at <https://kubernetes.io/docs/tasks/debug/debug-application/debug-running-pod/#ephemeral-container>.
 
+```mermaid
+flowchart TD
+  A["notes pod on distroless image"] --> B{"Need to investigate"}
+  B -->|"Normal case"| C["Read logs traces and metrics"]
+  B -->|"Break glass case"| D["kubectl debug attach ephemeral container"]
+  D --> E["Debug container shares pod namespaces"]
+  C --> F["Production image stays shell-less"]
+  E --> F
+```
+*Debugging happens through observability first; a shell is attached to the pod only for the rare break-glass case.*
+
 ## Running as a non-root user
 
 A container that runs as UID 0 (root) is a container escape away from root on the node. Most images run as root by default; most production incidents that turn a container compromise into a node compromise start there. The fix is two lines and one binary property:

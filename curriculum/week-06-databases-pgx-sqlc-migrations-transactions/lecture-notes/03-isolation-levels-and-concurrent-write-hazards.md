@@ -32,6 +32,19 @@ COMMIT;                                    COMMIT;
 
 Under `READ COMMITTED`, both transactions read 10, both write 11, and the second `UPDATE` silently clobbers the first. The view count should be 12; it is 11. This is the lost update, and it is the single most common data-corruption-under-concurrency bug. The three cures:
 
+```mermaid
+sequenceDiagram
+  participant A as Transaction A
+  participant B as Transaction B
+  participant DB as posts row
+  A->>DB: SELECT views returns 10
+  B->>DB: SELECT views returns 10
+  A->>DB: UPDATE views to 11
+  B->>DB: UPDATE views to 11
+  Note over DB: Final value 11 one increment lost
+```
+*Both transactions read the same stale value, so the second write silently clobbers the first.*
+
 ### Cure 1 — `SELECT ... FOR UPDATE` (pessimistic row lock)
 
 Take a row lock on the read, so the second transaction *waits* until the first commits, then reads the already-incremented value:
@@ -142,6 +155,17 @@ Three points: **(1)** the retry triggers *only* on SQLSTATE `40001`, classified 
 | Write skew | `SERIALIZABLE` + `40001` retry loop | the invariant spans rows that different transactions write; row locks cannot catch it |
 
 The skill is reading a use case and reaching for the *cheapest correct* cure. An atomic `UPDATE` is cheapest; `SERIALIZABLE` is the heaviest (every transaction pays the dependency-tracking cost and may need a retry). Reach for `SERIALIZABLE` when the hazard genuinely needs it, not by default. Citation: the Postgres concurrency-control overview at <https://www.postgresql.org/docs/current/mvcc.html>.
+
+```mermaid
+flowchart TD
+  A["What is the hazard"] -->|"Lost update"| B{"Need the value in Go first"}
+  B -->|"No"| C["Atomic in place UPDATE"]
+  B -->|"Yes"| D{"Contention level"}
+  D -->|"Moderate prefer blocking"| E["SELECT FOR UPDATE"]
+  D -->|"Low prefer no locks"| F["Optimistic version column"]
+  A -->|"Write skew across rows"| G["SERIALIZABLE plus 40001 retry loop"]
+```
+*Reach for the cheapest cure the hazard actually requires, not SERIALIZABLE by default.*
 
 ## 6. Integration testing against a real Postgres
 

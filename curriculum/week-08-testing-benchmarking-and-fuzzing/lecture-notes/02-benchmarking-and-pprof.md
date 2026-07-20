@@ -221,6 +221,17 @@ Set these only while investigating, or with a high `N` in production to keep the
 
 The matching of symptom to profile is the senior skill. "Goroutines climbing" → goroutine profile, look for thousands of goroutines parked on the same `chan receive`. "CPU pegged at 100%" → CPU profile, find the hot loop. "p99 latency high, CPU low" → block profile, find what is waiting. Picking the wrong profile wastes an afternoon staring at a graph that cannot show the problem.
 
+```mermaid
+flowchart TD
+  A{"What is the symptom?"}
+  A --> B["CPU pegged at 100 percent"] --> B1["CPU profile"]
+  A --> C["Memory growing or allocs high"] --> C1["Heap profile"]
+  A --> D["Goroutine count keeps climbing"] --> D1["Goroutine profile"]
+  A --> E["High latency but low CPU"] --> E1["Block profile"]
+  A --> F["Throughput stalls under load"] --> F1["Mutex profile"]
+```
+*Matching the observed symptom to the profile type that can actually show it.*
+
 ### 4.2 Reading a CPU profile with `go tool pprof`
 
 ```
@@ -327,6 +338,16 @@ func BuildTagIndex(notes []Note) map[string][]string {
 The `strings.Builder` reuses one backing buffer across the loop (with `b.Reset()` between keys), `strconv.Itoa` is cheaper than `Sprintf`, and pre-sizing the map avoids rehashing. (If the key is genuinely needed as a stable string for map lookup you still allocate it once per distinct key — but you have eliminated the per-iteration `Sprintf` allocation churn.)
 
 **Step 4 — re-benchmark and compare.** `benchstat old.txt new.txt` reports `-64.61%` on time, `-82.69%` on bytes, `-99.55%` on allocations, all with `p=0.000` (Section 3, the `benchstat` block). The optimization is real and significant — and you can prove it, line by line, from the profile that pointed you at the `Sprintf` in the first place. That is the loop: **measure (benchmark) → locate (profile) → fix → prove (benchstat).** No guessing at any step.
+
+```mermaid
+flowchart LR
+  A["Measure: testing.B benchmark"] --> B["Locate: pprof profile"]
+  B --> C["Fix the code"]
+  C --> D["Prove: benchstat old vs new"]
+  D -- p above 0.05, no real gain --> A
+  D -- p below 0.05, real gain --> E["Ship the change"]
+```
+*The measure, locate, fix, prove loop that replaces guessing with evidence at every step.*
 
 ## 7. Wrap-up — the measurement checklist
 

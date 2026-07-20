@@ -125,6 +125,15 @@ Two conventions worth naming:
 - **`internal/`** is special to the toolchain. A package under any `internal/` directory may be imported only by code rooted at the parent of that `internal/`. So `internal/count` is importable by our `wordfreq` module but not by anyone who imports our module. It is Go's "package-private to this module" mechanism. Citation: <https://pkg.go.dev/cmd/go#hdr-Internal_Directories>.
 - **The import path is the module path plus the directory.** No relative imports (`../count`) in modules; you always write the full path. The toolchain resolves it against `go.mod`.
 
+```mermaid
+flowchart TD
+  M["Module - wordfreq"] --> Main["main.go - package main"]
+  M --> Internal["internal/count"]
+  Main -->|imports| Internal
+  Outside["Another module"] -.->|import blocked| Internal
+```
+*`internal/` is importable by code inside its own module tree, never from outside.*
+
 ## 4. The build commands
 
 Five commands carry you through the week. Memorize the difference:
@@ -237,6 +246,15 @@ $ ldd wordfreq            # on Linux
 ```
 
 `not a dynamic executable` is the property the cloud-native world is built on. You can put that file into a `FROM scratch` container — an image with *nothing* in it, not even a libc — and it runs. We do exactly that in Week 10.
+
+```mermaid
+flowchart LR
+  Src["Go source tree"] --> Build["go build - CGO_ENABLED=0"]
+  Build --> Bin["Static binary - no dynamic deps"]
+  Bin --> Scratch["FROM scratch container"]
+  Scratch --> Run["Runs with zero OS dependencies"]
+```
+*A CGO-disabled build produces a binary that needs nothing else in its container.*
 
 Inspect the build metadata embedded in the binary with `go version -m`:
 

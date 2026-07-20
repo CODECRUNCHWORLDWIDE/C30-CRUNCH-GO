@@ -18,6 +18,15 @@ migrations/
 
 The `up` moves the schema forward to version N; the `down` moves it back to N−1. The discipline that the whole back half of the track depends on: **every migration has a `down`, and you have run it at least once.** A migration without a tested `down` is a migration you *cannot roll back*, and "we can't roll back the schema" is exactly the sentence you do not want to say at 3 AM when a deploy went wrong. The mini-project requires a clean `migrate down` and re-`up` — that demonstration is the test of your `down`. Citation: <https://github.com/golang-migrate/migrate/blob/master/MIGRATIONS.md>.
 
+```mermaid
+flowchart LR
+  A["Version 0 empty schema"] -->|"apply 000001 up"| B["Version 1 notes table"]
+  B -->|"apply 000002 up"| C["Version 2 notes plus owner"]
+  C -->|"migrate down 1"| B
+  B -->|"migrate down 1"| A
+```
+*Schema version moves forward one migration at a time with up, and backward with down.*
+
 ## 2. Authoring and applying migrations
 
 Create a migration pair with the CLI:
@@ -143,6 +152,19 @@ Five load-bearing details:
 3. **`r.q.WithTx(tx)`** returns a new `*Queries` whose statements run inside the transaction. This is how `sqlc` queries participate in a transaction — the *same* generated methods, bound to `tx` instead of the pool. Without `WithTx`, a query would run on a *different* pooled connection, outside the transaction, defeating the atomicity.
 4. **An error on any statement returns early**, and the deferred `Rollback` undoes *everything* — the note insert is rolled back when the audit insert fails. That is atomicity: all or nothing.
 5. **`tx.Commit(ctx)` is the only thing that persists.** Reach the commit and both rows are durable; return before it and neither is.
+
+```mermaid
+flowchart TD
+  A["pool Begin"] --> B["Insert note via WithTx"]
+  B -->|"error"| R["Deferred Rollback"]
+  B -->|"ok"| C["Insert audit via WithTx"]
+  C -->|"error"| R
+  C -->|"ok"| D["tx Commit"]
+  D -->|"error"| R
+  D -->|"ok"| S["Both rows durable"]
+  R --> F["Nothing persisted"]
+```
+*CreateWithAudit rolls back both inserts on any failure and commits only when every step succeeds.*
 
 Citation: <https://pkg.go.dev/github.com/jackc/pgx/v5#Tx> and <https://docs.sqlc.dev/en/latest/howto/transactions.html>.
 

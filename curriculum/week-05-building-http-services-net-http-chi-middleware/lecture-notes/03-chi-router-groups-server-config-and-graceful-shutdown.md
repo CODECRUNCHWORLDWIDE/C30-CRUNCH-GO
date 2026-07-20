@@ -66,6 +66,20 @@ Five `chi` features on display:
 4. **Per-group middleware**: a `r.Use(...)` *inside* a `r.Route` block applies only to that group. This is how you put auth on `/v1/admin` but not on `/healthz` — the single biggest ergonomic win over the bare `ServeMux`.
 5. **URL parameters via `chi.URLParam(r, "id")`**, the `chi` equivalent of `r.PathValue("id")`:
 
+```mermaid
+flowchart TD
+  A["Router root"] --> B["GET /healthz"]
+  A --> C["Route group /v1"]
+  C --> D["Route group /notes"]
+  D --> E["GET /notes - list"]
+  D --> F["POST /notes - create"]
+  D --> G["Route group /notes/id"]
+  G --> H["GET /notes/id - get"]
+  G --> I["PATCH /notes/id - update"]
+  G --> J["DELETE /notes/id - delete"]
+```
+*Nested route groups mirror the URL tree - each r.Route call is one level.*
+
 ```go
 func (h *Handler) Get(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
@@ -131,6 +145,18 @@ The trade with `ReadTimeout`/`WriteTimeout` is that they are *absolute* per-requ
 ## 5. Graceful shutdown — cancellation at the top of the server
 
 `srv.Shutdown(ctx)` is the graceful counterpart to `ListenAndServe`. It (1) stops accepting new connections, (2) closes idle keep-alive connections, and (3) waits for in-flight requests to finish — up to the deadline on the `ctx` you pass. This is Week 4's cancellation model applied to the whole server, driven by `signal.NotifyContext`:
+
+```mermaid
+stateDiagram-v2
+  Running --> Draining: SIGTERM received
+  Draining --> StopAccepting: stop accepting new connections
+  StopAccepting --> CloseIdle: close idle keep-alive connections
+  CloseIdle --> WaitInFlight: wait for in-flight requests
+  WaitInFlight --> Closed: all requests finished before deadline
+  WaitInFlight --> ForceClose: deadline exceeded
+  ForceClose --> Closed
+```
+*Shutdown drains the server through an ordered sequence of states, with a forced close as the fallback.*
 
 ```go
 func main() {

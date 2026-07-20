@@ -87,6 +87,17 @@ s = append(s, 3)       // len 3, cap 4 — REALLOCATED, new backing array
 
 This is why you **always write `s = append(s, x)`**, capturing the returned header — the returned slice may point at a different array than the one you passed in. Forgetting the assignment is a classic bug. Citation: <https://go.dev/blog/slices-intro>.
 
+```mermaid
+flowchart TD
+  A["append s, x"] --> B{"Spare capacity available"}
+  B -->|Yes| C["Write into existing backing array"]
+  B -->|No| D["Allocate new larger backing array"]
+  D --> E["Copy old elements over"]
+  C --> F["Return slice header"]
+  E --> F
+```
+*Whether `append` mutates in place or reallocates depends entirely on spare capacity.*
+
 ### 2.2 The shared-backing-array aliasing trap
 
 Slicing (`s[1:3]`) produces a new header that *shares the same backing array*. Mutating through one slice is visible through the other:
@@ -249,6 +260,19 @@ Three properties to burn in:
    defer fmt.Println("3")
    // prints 3, 2, 1
    ```
+
+   ```mermaid
+   flowchart TD
+     A["defer Println 1"] --> Stack["Deferred call stack"]
+     B["defer Println 2"] --> Stack
+     C["defer Println 3"] --> Stack
+     Stack --> D["Function returns"]
+     D --> E["Runs 3 first"]
+     E --> F["Runs 2 next"]
+     F --> G["Runs 1 last"]
+   
+```
+   *Deferred calls stack up in order written and unwind last-in-first-out.*
 
 2. **Arguments are evaluated at the `defer` statement, not when it runs.** This trips up everyone once:
 

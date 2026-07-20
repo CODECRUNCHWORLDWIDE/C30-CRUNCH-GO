@@ -51,6 +51,15 @@ Five rules govern their use:
 4. **Deadlines are inherited as the *earliest* of any ancestor's.** If a parent has a 5-second deadline and you derive a child with a 30-second timeout, the child still fires at 5 seconds, because the parent's `Done()` closes first. You cannot extend a deadline by deriving a longer one — you can only shorten it.
 5. **`context` is a request-scoped value, not a struct field.** Pass it as the first parameter of a function — `func Do(ctx context.Context, ...)` — never store it on a struct. Storing it ties the struct's lifetime to one request, which is a bug.
 
+```mermaid
+flowchart TD
+  A["cancel called on Parent"] --> P["Parent context"]
+  P --> C1["Child context A"]
+  P --> C2["Child context B"]
+  B["cancel called on Child A only"] --> C1
+```
+*Cancelling a parent cancels every descendant context; cancelling a child never cancels its parent.*
+
 Citation: <https://go.dev/blog/context> and the package overview at <https://pkg.go.dev/context>.
 
 ## 4. A worker that respects cancellation
@@ -246,6 +255,19 @@ Six pieces are worth naming:
 4. **Writing `results[i]` from each goroutine is race-free** because each goroutine writes a *distinct* index `i`, and `g.Wait()` establishes a happens-before edge between every goroutine's write and the `return results` that follows. No mutex needed. (We will prove this is race-free under `-race` in Lecture 3.)
 5. **`http.NewRequestWithContext(ctx, ...)`** is how cancellation reaches the network. When `ctx` is cancelled, the in-flight HTTP request is aborted and `client.Do` returns promptly with a context error. A request built with `http.NewRequest` (no context) ignores cancellation — never use it in a service.
 6. **`g.Wait()`** blocks until every started goroutine has returned, then returns the first error. It is the join point; after it, all the goroutines are done and `results` is safe to read.
+
+```mermaid
+flowchart LR
+  Urls["List of URLs"] --> Group["errgroup with limit"]
+  Group --> W1["Goroutine 1"]
+  Group --> W2["Goroutine 2"]
+  Group --> Wn["Goroutine up to limit"]
+  W1 --> Results["results slice"]
+  W2 --> Results
+  Wn --> Results
+  Results --> Wait["g Wait joins all"]
+```
+*CheckAll fans out into at most limit goroutines, each writing a distinct result slot, before g.Wait joins them.*
 
 Citation: <https://pkg.go.dev/golang.org/x/sync/errgroup> and `http.NewRequestWithContext` at <https://pkg.go.dev/net/http#NewRequestWithContext>.
 

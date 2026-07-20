@@ -145,6 +145,17 @@ func (q *Queries) DeleteNote(ctx context.Context, id string) (int64, error) { ..
 
 The promise: **a column typo is a generate-time error.** Rename `body` to `content` in the schema but not the query, run `sqlc generate`, and it fails: `column "body" does not exist`. The gap between "valid SQL against this schema" and "compiling Go" is closed before you ever run the program. Citation: <https://docs.sqlc.dev/en/latest/reference/query-annotations.html>.
 
+```mermaid
+flowchart LR
+  A["Schema up migrations"] --> C["sqlc generate"]
+  B["Annotated query.sql"] --> C
+  C --> D["models.go Note struct"]
+  C --> E["query.sql.go methods"]
+  D --> F["Type safe Go in the repository"]
+  E --> F
+```
+*The sqlc workflow: schema plus annotated queries compile into type-safe Go.*
+
 ## 4. The `PgRepo` — same interface, translated types
 
 The repository implements Week 5's `notes.Repository` interface, backed by the generated `Queries`:
@@ -221,6 +232,20 @@ Four things this layer does:
 4. **Maps the generated `db.Note` to the domain `notes.Note`** in `toDomain`. The generated row types (with `pgtype.Timestamptz` fields) are an implementation detail of the repository; the service sees clean `time.Time`s.
 
 This translation is the discipline that makes the seam real. A `PgRepo` that returned `pgx.ErrNoRows` to the service, or leaked a `db.Note`, would force the service to know about `pgx` — and then the seam is a lie. Citation: <https://pkg.go.dev/github.com/jackc/pgx/v5/pgconn#PgError> and the SQLSTATE list at <https://www.postgresql.org/docs/current/errcodes-appendix.html>.
+
+```mermaid
+flowchart LR
+  A["PgRepo method call"] --> B["pgx ErrNoRows"]
+  A --> C["pgconn PgError 23505"]
+  A --> D["db Note row"]
+  B --> E["notes ErrNotFound"]
+  C --> F["notes ErrConflict"]
+  D --> G["toDomain mapping"]
+  E --> H["Service sees only domain types"]
+  F --> H
+  G --> H
+```
+*Every pgx and sqlc type is translated to a domain sentinel or struct at the repository boundary.*
 
 ## 5. Threading `context` into every query
 

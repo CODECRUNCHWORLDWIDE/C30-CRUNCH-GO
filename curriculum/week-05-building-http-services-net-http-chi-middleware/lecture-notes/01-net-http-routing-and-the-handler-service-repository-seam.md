@@ -96,6 +96,15 @@ HTTP request  -->  Handler  -->  Service  -->  Repository  -->  data store
 - The **service** owns the business logic and is HTTP-ignorant: it takes a `context` and plain Go types, applies the rules, calls the repository, and returns plain Go types and typed errors. You could call it from a CLI, a gRPC server (Week 7), or a test, with no HTTP in sight.
 - The **repository** owns persistence behind a small interface, so the service can run against an in-memory fake in tests and a Postgres implementation in production (Week 6).
 
+```mermaid
+flowchart LR
+  A["HTTP request"] --> B["Handler - parse and validate"]
+  B --> C["Service - business rules"]
+  C --> D["Repository interface"]
+  D --> E["Data store"]
+```
+*Each layer only talks to the layer directly below it, through an interface.*
+
 The domain and the repository interface:
 
 ```go

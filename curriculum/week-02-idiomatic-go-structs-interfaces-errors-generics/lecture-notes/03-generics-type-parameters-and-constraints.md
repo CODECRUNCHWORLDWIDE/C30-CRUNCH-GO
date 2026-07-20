@@ -211,6 +211,16 @@ Mapped onto the kinds of code you write:
 
 The cache in Lab 02 is the textbook illustration of using *both*: the cache *container* is generic (`Cache[K comparable, V any]`) because storing and retrieving values is identical for every `K`/`V`; the *eviction policy* and the *store* are interfaces (`EvictionPolicy`, `Store[K, V]`) because LRU vs FIFO, and in-memory vs file-backed, are genuinely *different behaviour behind the same method set*. Container ⇒ generic; pluggable behaviour ⇒ interface. Citation: <https://go.dev/blog/when-generics>.
 
+```mermaid
+flowchart TD
+  Q["Does the function body treat every type the same"] -->|"Yes"| G["Use a type parameter, generics"]
+  Q -->|"No, behavior differs per type"| I["Use an interface"]
+  Q -->|"No abstraction needed"| N["Use neither"]
+  G --> EX1["Example, Cache stores any K and V"]
+  I --> EX2["Example, EvictionPolicy LRU vs FIFO"]
+```
+*The same-logic-vs-different-behaviour test that decides generics vs interfaces vs neither.*
+
 ## 7. When *not* to use generics
 
 A few concrete anti-patterns the "when generics" post and reviewers call out:

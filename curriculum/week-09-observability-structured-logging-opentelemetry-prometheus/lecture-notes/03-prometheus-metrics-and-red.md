@@ -6,6 +6,15 @@
 
 Metrics in Prometheus work opposite to how most people first assume. Your service does **not** push numbers to a metrics server. Instead, your service exposes an HTTP endpoint — conventionally `/metrics` — that returns the *current values* of all its instruments as plain text, and a Prometheus server **scrapes** that endpoint on an interval (every 15 seconds is typical). The service is a passive source of truth; Prometheus is the active collector. This pull model has consequences worth internalizing: a metric is a *current aggregate value held in memory in your process*, not an event you emit; Prometheus computes rates and ratios by differencing successive scrapes; and a service that is down simply fails to be scraped (which Prometheus records as the `up` metric going to 0 — a free liveness signal).
 
+```mermaid
+flowchart LR
+  App["Your service"] -->|exposes| Metrics["slash metrics endpoint"]
+  Prom["Prometheus server"] -->|scrapes every 15s| Metrics
+  Prom -->|stores time series| TSDB["Prometheus storage"]
+  Grafana["Grafana"] -->|PromQL queries| TSDB
+```
+*Prometheus pulls current values from your service; it never receives a push.*
+
 `client_golang` is the official Go client (citation: <https://github.com/prometheus/client_golang>). It gives you instrument types, a registry to hold them, and an HTTP handler to expose them.
 
 ## 2. The four metric types, and when each fits
@@ -289,6 +298,16 @@ Here is the workflow this entire week builds toward, and the mini-project drills
 2. **The trace pinpoints.** You switch tools. In Jaeger you filter traces by `service = notes` and `operation = GET /notes/{id}`, sort by duration, and open the slowest one. The waterfall shows the request's span tree: the server span is 400ms, the `service.GetNote` span is 398ms, and inside it the `db.query.GetNote` span is 395ms — bright red, with `db.statement` showing the query. You have pinpointed the regression to the database span, in the specific request, in seconds.
 
 3. **The log confirms.** You copy the trace's `trace_id` and search your logs. There is the request-scoped log line — `"fetching note"` with that `trace_id` — and, because you instrumented well, a `"slow query"` warning the repository emitted, with the query's duration. The narrative is complete: dashboard said *where*, trace said *which span*, log said *what*.
+
+```mermaid
+flowchart TD
+  A["Dashboard: p99 lifts on one route"] --> B["Localizes to a route and a time"]
+  B --> C["Jaeger: filter and sort by duration"]
+  C --> D["Trace pinpoints the slow span"]
+  D --> E["Copy trace_id, search logs"]
+  E --> F["Log confirms what happened"]
+```
+*Localize on the dashboard, pinpoint in the trace, confirm in the log.*
 
 The discipline is the two-step: **localize on the dashboard, pinpoint in the trace**. Do not try to localize in traces — you would be hunting through thousands of traces with no idea which route to look at; that is what the dashboard is for. Do not try to pinpoint in metrics — a metric labeled by note ID to "find the slow one" is the cardinality explosion from Section 3; that detail lives on the span. Each tool for its job. Master that two-step and you are the engineer who closes the incident in five minutes instead of fifty.
 

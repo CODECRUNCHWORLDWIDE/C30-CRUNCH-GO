@@ -27,6 +27,21 @@ The critical subtlety: (a) and (b) happen **concurrently and asynchronously**, p
 
 This is why a robust shutdown is more than "call `Shutdown` on `SIGTERM`," and why the `preStop` hook exists, covered below. First, the Go shutdown itself. Citation: <https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/#pod-termination>.
 
+```mermaid
+sequenceDiagram
+  participant K8s as Kubernetes
+  participant Proxy as kube-proxy
+  participant Pod
+  K8s->>Proxy: Remove endpoint
+  K8s->>Pod: Deliver SIGTERM
+  Pod->>Pod: Fail readiness
+  Pod->>Pod: Wait for propagation
+  Pod->>Pod: Drain HTTP and gRPC
+  Pod->>K8s: Exit cleanly
+  Note over K8s,Pod: If grace period runs out, Kubernetes sends SIGKILL
+```
+*Endpoint removal and SIGTERM fire concurrently, so the pod must fail readiness and wait before it stops draining.*
+
 ## The graceful-shutdown skeleton in Go
 
 `signal.NotifyContext` gives a `context` that is cancelled when `SIGTERM` or `SIGINT` arrives. Everything downstream watches that context. An `errgroup` runs the servers and the shutdown watcher together.
@@ -130,6 +145,14 @@ Read the **order**, because order is the whole correctness argument:
 2. **Gracefully stop gRPC.** `GracefulStop` refuses new RPCs and waits for in-flight ones; we wrap it in a `select` with the budget so a stuck RPC cannot hold us past the grace period — `Stop()` forces it.
 3. **Flush the trace exporter.** Otherwise the spans for the last requests — including the shutdown itself — are lost.
 4. **Close the pool last.** The deferred `pool.Close()` runs after `g.Wait()` returns, i.e. after the servers have stopped, so no handler loses its database connection mid-query. Closing the pool *first* would break the very in-flight requests you are trying to drain.
+
+```mermaid
+flowchart TD
+  A["Stop accepting, drain HTTP"] --> B["Gracefully stop gRPC"]
+  B --> C["Flush trace exporter"]
+  C --> D["Close database pool last"]
+```
+*The teardown order: draining HTTP and gRPC happens before the pool that in-flight requests still depend on is closed.*
 
 The `ErrServerClosed` / `grpc.ErrServerStopped` handling matters: when you call `Shutdown`/`GracefulStop`, the `Serve` goroutine returns *that specific error*, which is the *clean* exit, not a failure. Treating it as an error would make `g.Wait()` report a failure on a perfectly clean shutdown. Citation: <https://pkg.go.dev/net/http#Server.Shutdown> and the gRPC `GracefulStop` doc at <https://pkg.go.dev/google.golang.org/grpc#Server.GracefulStop>.
 
