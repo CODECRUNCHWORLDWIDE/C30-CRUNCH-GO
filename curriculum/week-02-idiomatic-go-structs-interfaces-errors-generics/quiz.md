@@ -11,6 +11,13 @@ A method `func (c *Counter) Inc()` has a pointer receiver. Which statement is co
 - (C) You may not call `Inc` on a `Counter` value, only on a `*Counter`, with no exceptions.
 - (D) Pointer and value receivers are interchangeable and never affect behaviour.
 
+<details>
+<summary>Answer</summary>
+
+**(B).** A pointer receiver operates on the original through a pointer, so it can mutate; a value receiver operates on a copy and mutations are lost. (C) is wrong because you *can* call `Inc` on an addressable `Counter` value — Go inserts the `&` automatically. Citation: <https://go.dev/doc/effective_go#methods>.
+
+</details>
+
 ## Question 2 — Method sets
 
 `Logfile` has one method, `func (l *Logfile) Write(p []byte) (int, error)` (pointer receiver). Which satisfies `io.Writer`?
@@ -19,6 +26,13 @@ A method `func (c *Counter) Inc()` has a pointer receiver. Which statement is co
 - (B) `Logfile` (value) only.
 - (C) `*Logfile` only — the value `Logfile`'s method set excludes pointer-receiver methods.
 - (D) Neither; `Write` must have a value receiver to satisfy `io.Writer`.
+
+<details>
+<summary>Answer</summary>
+
+**(C).** The method-set rule: a value `T`'s method set contains only its value-receiver methods; `*T`'s method set contains both. `Write` has a pointer receiver, so only `*Logfile` satisfies `io.Writer`; the value `Logfile` does not. Citation: <https://go.dev/ref/spec#Method_sets>.
+
+</details>
 
 ## Question 3 — Interface satisfaction
 
@@ -29,6 +43,13 @@ How does a type declare that it satisfies an interface in Go?
 - (C) It does not declare anything; satisfaction is implicit and structural — having the right methods *is* satisfying the interface.
 - (D) By embedding the interface as a field.
 
+<details>
+<summary>Answer</summary>
+
+**(C).** Satisfaction is implicit and structural — there is no `implements` keyword and no registration. A type satisfies an interface exactly by having the required methods, even if its author never knew the interface existed. Citation: <https://go.dev/doc/effective_go#interfaces>.
+
+</details>
+
 ## Question 4 — Accept interfaces, return structs
 
 Why does idiomatic Go prefer to *return* a concrete struct rather than an interface?
@@ -37,6 +58,13 @@ Why does idiomatic Go prefer to *return* a concrete struct rather than an interf
 - (B) Returning the concrete type keeps the full surface for the caller, lets you add methods later without breaking callers, and avoids an unnecessary boxing allocation; returning an interface is lossy and brittle.
 - (C) Returning a struct is faster only because structs are always stack-allocated.
 - (D) There is no preference; returning interfaces is equally idiomatic in all cases.
+
+<details>
+<summary>Answer</summary>
+
+**(B).** "Accept interfaces, return structs": returning the concrete type gives the caller the full documented surface, lets you add methods without breaking callers, and avoids boxing the value into an interface. Returning an interface is lossy (caller must assert back to capability) and brittle (adding a method breaks implementers). Citation: <https://go.dev/wiki/CodeReviewComments#interfaces>.
+
+</details>
 
 ## Question 5 — `%w` wrapping
 
@@ -47,6 +75,13 @@ What is the difference between `fmt.Errorf("ctx: %w", err)` and `fmt.Errorf("ctx
 - (C) `%v` wraps; `%w` only formats.
 - (D) `%w` panics if `err` is nil; `%v` does not.
 
+<details>
+<summary>Answer</summary>
+
+**(B).** `%w` wraps the error so it stays inspectable via the `Unwrap` chain that `errors.Is`/`errors.As` walk; `%v` formats it into the message text and stops the chain there. Wrapping also makes the wrapped error part of your API contract — a deliberate choice. Citation: <https://go.dev/blog/go1.13-errors>, <https://pkg.go.dev/fmt#Errorf>.
+
+</details>
+
 ## Question 6 — `errors.Is`
 
 Given `err := fmt.Errorf("load: %w", ErrNotFound)`, which is true?
@@ -55,6 +90,13 @@ Given `err := fmt.Errorf("load: %w", ErrNotFound)`, which is true?
 - (B) `err == ErrNotFound` is true but `errors.Is(err, ErrNotFound)` is false.
 - (C) `err == ErrNotFound` is false, but `errors.Is(err, ErrNotFound)` is true because `Is` walks the wrapped chain.
 - (D) Both are false; once wrapped, a sentinel can never be detected.
+
+<details>
+<summary>Answer</summary>
+
+**(C).** The wrapped error is a *new* `fmt` value, so `err == ErrNotFound` is false. But `errors.Is(err, ErrNotFound)` walks the chain via `Unwrap` and finds the wrapped sentinel — which is exactly why you use `errors.Is` instead of `==` once anything wraps the sentinel. Citation: <https://pkg.go.dev/errors#Is>.
+
+</details>
 
 ## Question 7 — `errors.Is` vs `errors.As`
 
@@ -65,6 +107,13 @@ You need to detect a failure *and read a field off it* (a `RetryAfter` duration 
 - (C) `err.(*RateLimitError)` is the only way; `errors.As` cannot read fields.
 - (D) `err.Error()` and parse the duration out of the message string.
 
+<details>
+<summary>Answer</summary>
+
+**(B).** `errors.As(err, &rle)` searches the chain for an error assignable to `*rle`'s type, binds it, and lets you read its fields. Note the pointer-to-target argument. `errors.Is` only tests identity (yes/no); it does not give you the value. (D) string-parses the message — the anti-pattern. Citation: <https://pkg.go.dev/errors#As>.
+
+</details>
+
 ## Question 8 — Sentinel vs typed
 
 When is a *sentinel* error (`var ErrX = errors.New(...)`) the right choice over a *typed* error?
@@ -73,6 +122,13 @@ When is a *sentinel* error (`var ErrX = errors.New(...)`) the right choice over 
 - (B) When the caller only needs to know *which* failure occurred (identity), with no extra data to read — checked with `errors.Is`. A typed error is for when the caller needs *details* (fields), read with `errors.As`.
 - (C) Only inside the standard library.
 - (D) When the error must carry a stack trace.
+
+<details>
+<summary>Answer</summary>
+
+**(B).** A sentinel answers *which* failure (identity), checked with `errors.Is`; a typed error answers *with what details* (fields), read with `errors.As`. Both are valid and both join your public contract; choose per error based on whether the caller needs data. Citation: <https://go.dev/blog/error-handling-and-go>, <https://go.dev/blog/go1.13-errors>.
+
+</details>
 
 ## Question 9 — Type parameters and constraints
 
@@ -83,6 +139,13 @@ In `type Cache[K comparable, V any]`, why is `K` constrained to `comparable` whi
 - (C) `any` is not allowed for the second type parameter.
 - (D) It is an arbitrary convention with no functional reason.
 
+<details>
+<summary>Answer</summary>
+
+**(B).** `K` is a map key, and map keys must support `==` — precisely what `comparable` requires. `V` is only stored and returned, never compared, so it needs no constraint and `any` is correct. A constraint should list exactly the operations the body performs, no more. Citation: <https://go.dev/ref/spec#Comparison_operators>, <https://go.dev/doc/tutorial/generics>.
+
+</details>
+
 ## Question 10 — Generics vs interfaces
 
 You are writing code that must *behave differently depending on the concrete type* — write to a file one way, to a socket another. Generics or an interface?
@@ -92,20 +155,14 @@ You are writing code that must *behave differently depending on the concrete typ
 - (C) Neither; use a giant type switch over `any`.
 - (D) Always generics in modern Go; interfaces are deprecated.
 
+<details>
+<summary>Answer</summary>
+
+**(B).** Behaviour that differs per concrete type is polymorphism over behaviour — an interface, with each type implementing the method its own way. A type parameter abstracts over types whose handling is *identical* (containers like `Cache[K,V]`, algorithms like `Map`). The Go team's rule: same logic for every type ⇒ generics; different behaviour per type ⇒ interface; neither ⇒ neither. Citation: <https://go.dev/blog/when-generics>.
+
+</details>
+
 ---
-
-## Answer key
-
-- **Q1: (B).** A pointer receiver operates on the original through a pointer, so it can mutate; a value receiver operates on a copy and mutations are lost. (C) is wrong because you *can* call `Inc` on an addressable `Counter` value — Go inserts the `&` automatically. Citation: <https://go.dev/doc/effective_go#methods>.
-- **Q2: (C).** The method-set rule: a value `T`'s method set contains only its value-receiver methods; `*T`'s method set contains both. `Write` has a pointer receiver, so only `*Logfile` satisfies `io.Writer`; the value `Logfile` does not. Citation: <https://go.dev/ref/spec#Method_sets>.
-- **Q3: (C).** Satisfaction is implicit and structural — there is no `implements` keyword and no registration. A type satisfies an interface exactly by having the required methods, even if its author never knew the interface existed. Citation: <https://go.dev/doc/effective_go#interfaces>.
-- **Q4: (B).** "Accept interfaces, return structs": returning the concrete type gives the caller the full documented surface, lets you add methods without breaking callers, and avoids boxing the value into an interface. Returning an interface is lossy (caller must assert back to capability) and brittle (adding a method breaks implementers). Citation: <https://go.dev/wiki/CodeReviewComments#interfaces>.
-- **Q5: (B).** `%w` wraps the error so it stays inspectable via the `Unwrap` chain that `errors.Is`/`errors.As` walk; `%v` formats it into the message text and stops the chain there. Wrapping also makes the wrapped error part of your API contract — a deliberate choice. Citation: <https://go.dev/blog/go1.13-errors>, <https://pkg.go.dev/fmt#Errorf>.
-- **Q6: (C).** The wrapped error is a *new* `fmt` value, so `err == ErrNotFound` is false. But `errors.Is(err, ErrNotFound)` walks the chain via `Unwrap` and finds the wrapped sentinel — which is exactly why you use `errors.Is` instead of `==` once anything wraps the sentinel. Citation: <https://pkg.go.dev/errors#Is>.
-- **Q7: (B).** `errors.As(err, &rle)` searches the chain for an error assignable to `*rle`'s type, binds it, and lets you read its fields. Note the pointer-to-target argument. `errors.Is` only tests identity (yes/no); it does not give you the value. (D) string-parses the message — the anti-pattern. Citation: <https://pkg.go.dev/errors#As>.
-- **Q8: (B).** A sentinel answers *which* failure (identity), checked with `errors.Is`; a typed error answers *with what details* (fields), read with `errors.As`. Both are valid and both join your public contract; choose per error based on whether the caller needs data. Citation: <https://go.dev/blog/error-handling-and-go>, <https://go.dev/blog/go1.13-errors>.
-- **Q9: (B).** `K` is a map key, and map keys must support `==` — precisely what `comparable` requires. `V` is only stored and returned, never compared, so it needs no constraint and `any` is correct. A constraint should list exactly the operations the body performs, no more. Citation: <https://go.dev/ref/spec#Comparison_operators>, <https://go.dev/doc/tutorial/generics>.
-- **Q10: (B).** Behaviour that differs per concrete type is polymorphism over behaviour — an interface, with each type implementing the method its own way. A type parameter abstracts over types whose handling is *identical* (containers like `Cache[K,V]`, algorithms like `Map`). The Go team's rule: same logic for every type ⇒ generics; different behaviour per type ⇒ interface; neither ⇒ neither. Citation: <https://go.dev/blog/when-generics>.
 
 ## Self-assessment
 

@@ -39,6 +39,14 @@ By the end of this week, you will be able to:
 - **Capture** a first CPU profile with `go test -cpuprofile cpu.out -bench .` and read the top frame with `go tool pprof -top cpu.out`. Cite <https://go.dev/blog/pprof>.
 - **Cite** the Go standard-library documentation, the Go memory model specification, the `golang.org/x/sync` package docs, and the official Go blog concurrency-patterns series for every technique covered.
 
+## Standards this week meets
+
+| Bar | What this week is measured against |
+| --- | --- |
+| University | `CS 4823` — Protect shared state with mutual exclusion, reader/writer locks and atomics; reason from a memory model about happens-before and visibility; define a data race and eliminate one found by a tool; and cancel concurrent work under a propagated deadline. |
+| Industry | Give every unit of concurrent work a deadline and a way to be cancelled, and find the race in code that already passes its tests — by running the detector under load, not by reading the code harder. |
+| Beyond the bar | The worker-pool size is swept as a benchmark parameter until throughput stops improving, and the first CPU profile is read to name the frame that explains why — the point where adding workers stops helping is measured on the learner's own machine, not quoted from a curve in a slide — `challenges/challenge-02-benchmark-sweep-and-pprof.md` |
+
 ## Prerequisites
 
 - **Week 3 of C30 complete.** You can build a fan-out / fan-in pipeline with channels and `select`, you apply the "who closes the channel" rule, and you can spot a goroutine leak. This week threads cancellation through that pipeline.

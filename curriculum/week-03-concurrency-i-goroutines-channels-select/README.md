@@ -36,6 +36,14 @@ By the end of this week, you will be able to:
 - **Build** a fan-out/fan-in pipeline — a generator, N worker goroutines reading one channel, and a merge step folding their outputs back to one — and shut it down cleanly. Cite <https://go.dev/blog/pipelines>.
 - **Choose** between a channel and a `sync.Mutex` for a given coordination problem, and defend the choice in review. Cite <https://go.dev/blog/codelab-share> and <https://pkg.go.dev/sync#Mutex>.
 
+## Standards this week meets
+
+| Bar | What this week is measured against |
+| --- | --- |
+| University | `CDA 4102` — Create concurrent units of execution and account for their cost, coordinate them by message passing with stated blocking semantics, multiplex several sources at one control point, and decompose work into a pipeline and a fan-out/fan-in. |
+| Industry | Bound the work a service starts on somebody else's behalf: replace one-goroutine-per-item with an N-worker pool, and shut the pipeline down so nothing is left blocked on a channel no one will ever read. |
+| Beyond the bar | A goroutine leak is planted on purpose, watched climbing in a live goroutine count, fixed by hand, and then asserted away in the test suite with `goleak` — a failure the compiler, `go vet` and a green happy-path suite all pass straight over — `challenges/challenge-01-prove-no-leaks.md` |
+
 ## Prerequisites
 
 - **Weeks 1 and 2 of C30.** You can stand up a module, run the toolchain clean, write a small consumer-defined interface, return and wrap error values, and author a table-driven test. This week assumes all of that without re-teaching it.

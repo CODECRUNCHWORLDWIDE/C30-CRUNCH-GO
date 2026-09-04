@@ -35,6 +35,14 @@ By the end of this week, you will be able to:
 - **Decide** between generics and interfaces with the container/algorithm/neither matrix, and articulate when *not* to reach for generics. Cite <https://go.dev/blog/when-generics> and <https://pkg.go.dev/cmp>.
 - **Keep** every artifact clean under `go vet`, `staticcheck`, and `go test` — including a table-driven suite that checks errors with `errors.Is`. Cite <https://pkg.go.dev/testing> and <https://staticcheck.dev>.
 
+## Standards this week meets
+
+| Bar | What this week is measured against |
+| --- | --- |
+| University | `SWE 432` — Past the outcome set: neither ledger course assesses receiver choice, consumer-defined interfaces or type parameters on their own. Week 2 builds the domain error taxonomy that the Server-Side Web Programming outcome "return failure to a client in one consistent shape" depends on from Week 5 onward. |
+| Industry | Design the seam a team has to live behind for years: one small interface defined by the code that consumes it, a receiver choice you can defend in review, and an error surface a caller three layers up can still interrogate without matching on message text. |
+| Beyond the bar | The error taxonomy is designed, implemented and then *proved* — a test suite walks `errors.Is` and `errors.As` across a multi-layer wrapped chain, so the contract is demonstrated rather than asserted in prose — `challenges/challenge-02-error-taxonomy.md` |
+
 ## Prerequisites
 
 - **Week 1 complete.** You have a module muscle-memory, you check every `err`, you write table-driven tests with `t.Run`, and your code is clean under `go vet` and `staticcheck`. If `go build ./...` versus `go build` still feels fuzzy, re-read Week 1 Lecture 1 first.

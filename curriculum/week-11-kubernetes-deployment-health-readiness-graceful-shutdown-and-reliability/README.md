@@ -33,6 +33,14 @@ By the end of this week, you will be able to:
 - **Set** a hardened pod `securityContext` (`runAsNonRoot`, `readOnlyRootFilesystem`, dropped capabilities) that enforces the non-root image from Week 10. Cite <https://kubernetes.io/docs/concepts/security/pod-security-standards/>.
 - **Cite** kubernetes.io (probes, deployments, pod lifecycle, ConfigMap/Secret, security), kind.sigs.k8s.io, pkg.go.dev (net/http, context, os/signal, errgroup), the AWS backoff-and-jitter article, and the Google SRE book for each technique covered.
 
+## Standards this week meets
+
+| Bar | What this week is measured against |
+| --- | --- |
+| University | `CS 4485` — Deploy the service so a second client can reach it, and keep it correct while it serves many requests at once, including a shutdown that does not drop work. |
+| Industry | Be the person who gets paged: probes that tell the truth, a drain on `SIGTERM`, a deadline on every outbound call, and a version rollout that does not drop the traffic the service is already carrying. |
+| Beyond the bar | Postgres is killed mid-traffic on the learner's own deployment, and the timeouts, jittered retries and circuit breaker have to prove the blast radius stayed contained — fail fast in milliseconds, goroutine count bounded, readiness honest — and that the service recovered when the database came back, without a restart — `challenges/challenge-02-dependency-outage-drill.md` |
+
 ## Prerequisites
 
 - **Week 10 complete.** This week deploys the same distroless, env-configured `notes` image Week 10 produced. If your Lab 10 image is not built and 12-factor-clean, finish it first — there is nothing to deploy otherwise.

@@ -32,6 +32,14 @@ By the end of this week, you will be able to:
 - **Answer** the senior backend-Go interview loop — pointer vs value receivers, channel vs mutex, `context` cancellation, liveness vs readiness, graceful shutdown, distroless/12-factor, retries-with-jitter — pointing at your own code as the worked example.
 - **Cite** the SYLLABUS capstone spec and assessment matrix, the ADR community, opentelemetry.io, the Go pprof blog, and the Google SRE workbook (postmortems, playbooks) for each deliverable.
 
+## Standards this week meets
+
+| Bar | What this week is measured against |
+| --- | --- |
+| University | `COP 4813` — Deploy the service so a second client can reach it, and defend the load-bearing design decisions behind it: the concurrency model, the data layer, the transports and the reliability behaviour. |
+| Industry | Ship it and then answer for it: a running service, decision records for the choices that were arguable, a load-and-trace report, a drill postmortem, a production runbook, and a defence of all of it in front of reviewers who did not write it. |
+| Beyond the bar | One pull request landed in a real open-source Go project as assessed coursework — a doc fix that clears up something genuinely confusing, a small bug fix with a test, or a scoped feature with the maintainer's buy-in; a whitespace-only change does not count — `challenges/challenge-01-merge-an-open-source-go-pr.md` |
+
 ## Prerequisites
 
 - **Weeks 1–11 of C30 complete, Weeks 9–11 in particular.** This week integrates and defends the service those weeks built, instrumented, containerized, and deployed. If Lab 9 (observability), Lab 10 (container), or Lab 11 (Kubernetes + reliability) is not done, finish it first — there is nothing to integrate otherwise.

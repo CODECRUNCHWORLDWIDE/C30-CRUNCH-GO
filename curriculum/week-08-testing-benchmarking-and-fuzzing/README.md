@@ -35,6 +35,14 @@ By the end of this week, you will be able to:
 - **Stand up** an integration test against a real Postgres with `testcontainers-go`: bring up the `postgres` module, run migrations in `TestMain`, gate the suite behind `//go:build integration`, `t.Skip` when Docker is absent, and isolate parallel tests so they do not collide.
 - **Read** a coverage report as a signal: `go test -coverprofile`, `go tool cover -html`, and the judgment to find the holes that matter without chasing 100%.
 
+## Standards this week meets
+
+| Bar | What this week is measured against |
+| --- | --- |
+| University | `COP 4813` — Test a service at its boundary and against a real database rather than a stand-in, and measure throughput to decide whether a change is an improvement. |
+| Industry | Attach evidence to a claim before a reviewer asks for it: a suite that runs against the real dependency in a container, a benchmark delta with a p-value, and a profile naming the frame that changed. |
+| Beyond the bar | Native fuzzing against a parser with a real, findable bug in it — the learner runs the engine, reads the crasher it writes into `testdata/fuzz/`, and fixes the input *class* rather than the one input that happened to crash — `exercises/exercise-03-fuzz-target_test.go` |
+
 ## Prerequisites
 
 - **Weeks 5–7 of C30 complete.** You have a `notes` service with a handler/service/repository split, a Postgres data layer with `pgx`/`sqlc`/`golang-migrate`, and you can read and write Go interfaces. This week hardens exactly that service.

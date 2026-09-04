@@ -37,6 +37,14 @@ By the end of this week, you will be able to:
 - **Write** integration tests against a real Postgres container with `testcontainers-go` (or a compose harness): apply migrations, run the tests, tear down. Test a multi-step transaction and a `migrate down`/re-`up`. Cite <https://golang.testcontainers.org/>.
 - **Cite** the `pgx`, `pgxpool`, and `pgconn` package docs, the `sqlc` documentation, the `golang-migrate` docs, and the Postgres transaction-isolation manual for every technique covered.
 
+## Standards this week meets
+
+| Bar | What this week is measured against |
+| --- | --- |
+| University | `CS 4485` — Persist application state to a relational database through a deliberately sized connection pool, author and apply reversible schema migrations, keep a multi-step write atomic in a transaction, and choose an isolation level against the concurrent-write hazards. |
+| Industry | Own the data layer of a service that is already running: a pool sized against the database's own connection limit, migrations that roll back as well as forward, and a write path that stays correct when two clients do the same thing at the same instant. |
+| Beyond the bar | Write skew is reproduced, `SERIALIZABLE` is watched rejecting it, and the `40001` retry loop that makes that isolation level usable in production is written and tested — the half of serializable isolation a syllabus states and stops at — `challenges/challenge-01-serializable-retry-loop.md` |
+
 ## Prerequisites
 
 - **Week 5 of C30 complete.** You built the layered `notes-api` with a `Repository` interface and an in-memory implementation. This week swaps in a Postgres implementation behind the *same* interface — the seam is the whole point.

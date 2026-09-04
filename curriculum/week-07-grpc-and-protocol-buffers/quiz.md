@@ -11,6 +11,13 @@ Ten multiple-choice questions. Take it with your lecture notes closed. Aim for 9
 - C) The receiver sees the Go zero value `nil`.
 - D) Behavior is undefined; implementations disagree.
 
+<details>
+<summary>Answer</summary>
+
+**B.** Without `optional`, proto3 cannot distinguish unset from default; the wire emits nothing for default-valued scalars, and the Go field is a plain `int32`. `optional` turns the field into a `*int32` and tracks presence. By design, proto3 traded the distinction for terser bytes.
+
+</details>
+
 ---
 
 **Q2.** A `.proto` declares:
@@ -30,6 +37,13 @@ A v2 server adds `NOTE_EVENT_KIND_DELETED = 3` and emits it. A v1 Go client rece
 - C) The v1 client sees `NOTE_EVENT_KIND_UNSPECIFIED` (the zero default).
 - D) The protobuf parser strips the unknown value from the wire bytes.
 
+<details>
+<summary>Answer</summary>
+
+**B.** Proto3 enums are *open*: an unknown integer round-trips as `NoteEventKind(3)` with no error. This is the basis of forward-compatible enum extension — a v2 server may add values and v1 clients tolerate them.
+
+</details>
+
 ---
 
 **Q3.** What does the proto3 wire encoding look like for `message X { int32 a = 1; string b = 2; }` with `a = 0` and `b = "ok"`?
@@ -38,6 +52,13 @@ A v2 server adds `NOTE_EVENT_KIND_DELETED = 3` and emits it. A v1 Go client rece
 - B) One field entry for `b`: tag `0x12`, length `0x02`, payload `0x6F 0x6B`. Four bytes total. `a = 0` is the default and emits nothing.
 - C) JSON `{"a":0,"b":"ok"}` wrapped in a length prefix.
 - D) Three entries: `a`, `b`, and an end-of-message marker.
+
+<details>
+<summary>Answer</summary>
+
+**B.** Default-valued scalars are not emitted. `a = 0` produces zero bytes. `b = "ok"` is tag `(2<<3)|2 = 0x12`, length `0x02`, payload `0x6F 0x6B` — four bytes total.
+
+</details>
 
 ---
 
@@ -55,6 +76,13 @@ What call type is this?
 - C) Client-streaming
 - D) Bidirectional streaming
 
+<details>
+<summary>Answer</summary>
+
+**B.** A method whose *response* side is a typed stream (`..._WatchNotesServer` with `Send`) and whose request is a single message is server-streaming. The absence of a `Recv`-bearing request stream and the presence of the response stream identify the shape.
+
+</details>
+
 ---
 
 **Q5.** A Go client calls `client.GetNote(context.Background(), req)` with no deadline. The server is slow and takes 60 seconds. What happens?
@@ -63,6 +91,13 @@ What call type is this?
 - B) The client waits indefinitely. grpc-go has **no** default client deadline; the absence of one is the bug.
 - C) The client fails after 5 seconds with `codes.DeadlineExceeded`.
 - D) The HTTP/2 keepalive forces a `codes.Unavailable` at 20 seconds.
+
+<details>
+<summary>Answer</summary>
+
+**B.** grpc-go has no default client deadline. A call with no deadline waits forever (until the transport's keepalive eventually intervenes, which is not a gRPC-level deadline). Setting a deadline on every call is the discipline; its absence is the bug.
+
+</details>
 
 ---
 
@@ -73,6 +108,13 @@ What call type is this?
 - C) `codes.Unauthorized`
 - D) `codes.Internal`
 
+<details>
+<summary>Answer</summary>
+
+**B.** `Unauthenticated` is "who are you?" — missing or invalid credentials. `PermissionDenied` is "I know who you are, and you may not do this." `codes.Unauthorized` is not a real code. In HTTP terms, `Unauthenticated` is 401 and `PermissionDenied` is 403.
+
+</details>
+
 ---
 
 **Q7.** What is the principal reason to develop *proto-first* with `buf` rather than hand-writing JSON contracts per service?
@@ -81,6 +123,13 @@ What call type is this?
 - B) One `.proto` is the single cross-language contract — it generates a Go server, a Go client, a Python client, and more, all wire-compatible — and `buf breaking` mechanically prevents wire-incompatible changes from merging.
 - C) Proto-first is required by Go 1.22.
 - D) JSON cannot express streaming and protobuf can.
+
+<details>
+<summary>Answer</summary>
+
+**B.** The single cross-language contract plus mechanical breaking-change detection is the value proposition. `buf breaking` makes "never reuse a field number, never change a type" a CI gate rather than a code-review hope.
+
+</details>
 
 ---
 
@@ -91,6 +140,13 @@ What call type is this?
 - C) Because the server ignored its `ctx`, it wastes ~800ms of work after the client gave up — capacity that shows up as tail latency on unrelated RPCs.
 - D) Deadlines are guaranteed accurate to one millisecond regardless of network latency and scheduler jitter.
 
+<details>
+<summary>Answer</summary>
+
+**D.** Deadlines are *not* millisecond-accurate; they are accurate to whatever the clock, the scheduler, and the cancellation plumbing provide — typically tens of milliseconds. Designing for sub-50ms deadline precision is a mistake. The other three statements are true.
+
+</details>
+
 ---
 
 **Q9.** A server-streaming RPC is opened; the Go client iterates `stream.Recv()` and returns from `main` (or cancels its context) after the third event. What happens to the underlying HTTP/2 stream?
@@ -99,6 +155,13 @@ What call type is this?
 - B) Canceling the call's context (or letting it go out of scope) cancels the client side; the server's `stream.Context().Done()` fires, and a handler that selects on it exits cleanly. A handler that ignores it keeps producing into a dead stream.
 - C) The stream cannot close until the server sends every event; the client must drain to `io.EOF`.
 - D) The entire HTTP/2 connection is torn down, breaking all other concurrent RPCs on it.
+
+<details>
+<summary>Answer</summary>
+
+**B.** Canceling the client context propagates: the server's `stream.Context().Done()` fires, and a handler that `select`s on it returns immediately and the stream is torn down cleanly. The failure mode the question warns against is a handler that *ignores* the context and keeps `Send`-ing into a dead stream.
+
+</details>
 
 ---
 
@@ -109,29 +172,14 @@ What call type is this?
 - C) Both run concurrently around the handler.
 - D) Only `recoveryUnary` runs; `loggingUnary` is dead code.
 
+<details>
+<summary>Answer</summary>
+
+**A.** `ChainUnaryInterceptor` runs interceptors outside-in in registration order: the first-registered (`recoveryUnary`) is outermost — its pre-code runs first and its post-code runs last — so it wraps `loggingUnary` and every handler, which is exactly why recovery is registered first.
+
 ---
 
-## Answer key (no peeking until you have answered all ten)
-
-1. **B.** Without `optional`, proto3 cannot distinguish unset from default; the wire emits nothing for default-valued scalars, and the Go field is a plain `int32`. `optional` turns the field into a `*int32` and tracks presence. By design, proto3 traded the distinction for terser bytes.
-
-2. **B.** Proto3 enums are *open*: an unknown integer round-trips as `NoteEventKind(3)` with no error. This is the basis of forward-compatible enum extension — a v2 server may add values and v1 clients tolerate them.
-
-3. **B.** Default-valued scalars are not emitted. `a = 0` produces zero bytes. `b = "ok"` is tag `(2<<3)|2 = 0x12`, length `0x02`, payload `0x6F 0x6B` — four bytes total.
-
-4. **B.** A method whose *response* side is a typed stream (`..._WatchNotesServer` with `Send`) and whose request is a single message is server-streaming. The absence of a `Recv`-bearing request stream and the presence of the response stream identify the shape.
-
-5. **B.** grpc-go has no default client deadline. A call with no deadline waits forever (until the transport's keepalive eventually intervenes, which is not a gRPC-level deadline). Setting a deadline on every call is the discipline; its absence is the bug.
-
-6. **B.** `Unauthenticated` is "who are you?" — missing or invalid credentials. `PermissionDenied` is "I know who you are, and you may not do this." `codes.Unauthorized` is not a real code. In HTTP terms, `Unauthenticated` is 401 and `PermissionDenied` is 403.
-
-7. **B.** The single cross-language contract plus mechanical breaking-change detection is the value proposition. `buf breaking` makes "never reuse a field number, never change a type" a CI gate rather than a code-review hope.
-
-8. **D.** Deadlines are *not* millisecond-accurate; they are accurate to whatever the clock, the scheduler, and the cancellation plumbing provide — typically tens of milliseconds. Designing for sub-50ms deadline precision is a mistake. The other three statements are true.
-
-9. **B.** Canceling the client context propagates: the server's `stream.Context().Done()` fires, and a handler that `select`s on it returns immediately and the stream is torn down cleanly. The failure mode the question warns against is a handler that *ignores* the context and keeps `Send`-ing into a dead stream.
-
-10. **A.** `ChainUnaryInterceptor` runs interceptors outside-in in registration order: the first-registered (`recoveryUnary`) is outermost — its pre-code runs first and its post-code runs last — so it wraps `loggingUnary` and every handler, which is exactly why recovery is registered first.
+</details>
 
 ---
 

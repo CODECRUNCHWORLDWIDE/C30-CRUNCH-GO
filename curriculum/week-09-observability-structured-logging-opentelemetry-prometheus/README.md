@@ -34,6 +34,14 @@ By the end of this week, you will be able to:
 - **Query** the metrics in PromQL — `rate()` for rate, a filtered-counter ratio for errors, `histogram_quantile()` for p95/p99 — and read each one off a Grafana panel.
 - **Localize** a latency regression: read a p99 spike off the Grafana RED dashboard, identify the slow route, open a slow trace for that route in Jaeger, and pinpoint the span that consumed the time.
 
+## Standards this week meets
+
+| Bar | What this week is measured against |
+| --- | --- |
+| University | `CS 4485` — Operate the service you wrote: structured logs, request-rate, error and duration metrics, and distributed traces that let somebody who did not write it say what it is doing. |
+| Industry | Answer "why is it slow" from instrumentation instead of a guess: one join key shared by logs and traces, RED metrics with label cardinality kept bounded, and a dashboard the person on call can read at three in the morning. |
+| Beyond the bar | A regression is planted and then localised under on-call conditions — dashboard to route to trace to the single slow span — and written up as an incident postmortem recording what each tool said, in what order, and how long each step took — `challenges/challenge-02-localize-a-regression.md` |
+
 ## Prerequisites
 
 - **Weeks 5–8 of C30 complete.** You have the running `notes` service: a chi REST API (Week 5) with a handler → service → repository split, backed by Postgres via `pgx` + `sqlc` + `golang-migrate` (Week 6), with a gRPC surface (Week 7), all under a test suite (Week 8). This week instruments that exact service. If your `notes` does not run, fix that first; you cannot observe a service that does not start.

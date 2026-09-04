@@ -38,6 +38,14 @@ By the end of this week, you will be able to:
 - **Test** handlers with `httptest.NewRequest` + `httptest.NewRecorder` against a fake service, and test the whole router with `httptest.NewServer`. Write table-driven handler tests. Cite <https://pkg.go.dev/net/http/httptest>.
 - **Cite** the `net/http`, `encoding/json`, and `net/http/httptest` package docs, the Go 1.22 routing post, the `chi` docs, and RFC 9110 for every technique covered.
 
+## Standards this week meets
+
+| Bar | What this week is measured against |
+| --- | --- |
+| University | `COP 4813` — Build an HTTP server from the platform's own primitives, route a request by method and path, factor cross-cutting concerns into reusable middleware, parse and reject untrusted input, and map domain errors onto correct response status codes. |
+| Industry | Stand up the service tier a second team will call: a router, a middleware stack carrying a request ID and recovering from a panic, a capped request body, a per-request timeout, and one error envelope every endpoint returns. |
+| Beyond the bar | Graceful shutdown is not described but demonstrated under a load generator — requests are in flight when the signal arrives, and the learner counts them to show they drained rather than dropped — `challenges/challenge-02-graceful-shutdown-under-load.md` |
+
 ## Prerequisites
 
 - **Week 4 of C30 complete.** You thread `context` through a call tree for cancellation and deadlines. Every request handler receives `r.Context()`; the service and repository take it as their first parameter. The graceful-shutdown story is `signal.NotifyContext` from Week 4 applied to `http.Server`.

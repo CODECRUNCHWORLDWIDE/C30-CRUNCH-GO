@@ -11,6 +11,13 @@ Ten multiple-choice questions. Take it with your lecture notes closed. Aim for 9
 - C) It splits the table into `GOMAXPROCS` shards and runs each shard sequentially.
 - D) It has no effect unless you also pass `-parallel=N` on the command line.
 
+<details>
+<summary>Answer</summary>
+
+**B.** `t.Parallel()` signals that the subtest is safe to run concurrently. The testing framework pauses it until the parent's serial work is done, then runs all the parent's parallel subtests together. It does not spawn a thread immediately, and it does not require a command-line flag (though `-parallel=N` caps how many run at once). Documented at <https://pkg.go.dev/testing#T.Parallel>.
+
+</details>
+
 ---
 
 **Q2.** You are reviewing a pre-Go-1.22 table-driven test that wrote `tc := tc` at the top of the loop body before calling `t.Parallel()`. On Go 1.22+, is that shadow still needed?
@@ -19,6 +26,13 @@ Ten multiple-choice questions. Take it with your lecture notes closed. Aim for 9
 - B) No — as of Go 1.22 each `range` iteration binds a fresh loop variable, so a parallel subtest no longer captures a shared, mutated variable. The shadow is harmless but unnecessary.
 - C) No — `t.Parallel()` was removed in Go 1.22, so the question is moot.
 - D) Yes — without it, parallel subtests deadlock.
+
+<details>
+<summary>Answer</summary>
+
+**B.** Before Go 1.22 the `range` loop reused a single variable across iterations, so a parallel subtest — which runs *after* the loop finished — captured that one variable at its final value, and every parallel subtest tested the last case. The `tc := tc` shadow worked around it. Go 1.22 changed loop semantics so each iteration binds a fresh variable; the shadow is now unnecessary (and `go vet` no longer flags the missing shadow). See <https://go.dev/doc/go1.22>.
+
+</details>
 
 ---
 
@@ -29,6 +43,13 @@ Ten multiple-choice questions. Take it with your lecture notes closed. Aim for 9
 - C) `b.N` was set too low.
 - D) The CPU was idle, so the OS clock under-counted.
 
+<details>
+<summary>Answer</summary>
+
+**B.** A sub-nanosecond `ns/op` is the signature of dead-code elimination: the optimizer saw the result was unused and removed the call. Assign the result to a package-level sink so the compiler cannot prove it is unused. This is the single most common benchmarking mistake.
+
+</details>
+
 ---
 
 **Q4.** A benchmark line reads `BenchmarkBuild-10  4791  249830 ns/op  243712 B/op  2009 allocs/op`. Which statement is correct?
@@ -37,6 +58,13 @@ Ten multiple-choice questions. Take it with your lecture notes closed. Aim for 9
 - B) `2009 allocs/op` is the number of distinct heap allocations per call; `243712 B/op` is the bytes allocated per call; `249830 ns/op` is the time per call. The `4791` is the final `b.N`.
 - C) `B/op` is the number of bytes the function returned.
 - D) `allocs/op` counts stack allocations, which is why it is high.
+
+<details>
+<summary>Answer</summary>
+
+**B.** Read the columns: `4791` is the final `b.N` (the loop ran ~4,791 times for the last measurement), `249830 ns/op` is time per call, `243712 B/op` is heap bytes per call, `2009 allocs/op` is distinct heap allocations per call. `allocs/op` counts *heap* allocations, not stack — stack allocations are free and not counted.
+
+</details>
 
 ---
 
@@ -47,6 +75,13 @@ Ten multiple-choice questions. Take it with your lecture notes closed. Aim for 9
 - C) Zero of the ten runs improved.
 - D) The p-value must be above 0.05 to claim a win, so this result is inconclusive.
 
+<details>
+<summary>Answer</summary>
+
+**B.** `benchstat` runs a statistical test across the `n=10` runs per side and reports the p-value. A p-value below 0.05 means the difference is statistically significant — unlikely to be noise. `p=0.000` is strong evidence the 64.61% improvement is real. (If `benchstat` instead prints `~`, the difference is not significant and you should not claim a win.)
+
+</details>
+
 ---
 
 **Q6.** What governs how many times a `func BenchmarkX(b *testing.B)` runs its `for i := 0; i < b.N; i++` loop?
@@ -55,6 +90,13 @@ Ten multiple-choice questions. Take it with your lecture notes closed. Aim for 9
 - B) The framework chooses `b.N`: it runs a few iterations to estimate the per-op cost, then scales `b.N` up until the benchmark has run long enough (about a second by default) for a stable measurement.
 - C) `b.N` is always 1,000,000.
 - D) `b.N` equals `GOMAXPROCS`.
+
+<details>
+<summary>Answer</summary>
+
+**B.** You never set `b.N`. The framework estimates the per-iteration cost with a short run, then scales `b.N` up until the benchmark has run for its target duration (about a second by default, adjustable with `-benchtime`), which gives a stable timing. Your job is only to make the loop body do one unit of the work you want to measure.
+
+</details>
 
 ---
 
@@ -65,6 +107,13 @@ Ten multiple-choice questions. Take it with your lecture notes closed. Aim for 9
 - C) The heap profile with `-inuse_space`; a single large allocation.
 - D) The mutex profile; a contended lock.
 
+<details>
+<summary>Answer</summary>
+
+**B.** A goroutine leak is a goroutine-profile problem. The profile shows you *how many* goroutines exist and *where each is stuck* — a leak appears as a large, growing cluster all parked at the same line (often a `chan receive` or a `select` with no progress). CPU/heap/mutex profiles answer different questions and would not reveal the leak's location.
+
+</details>
+
 ---
 
 **Q8.** In a fuzz target, what is the relationship between `f.Add(...)` and the function passed to `f.Fuzz(...)`?
@@ -73,6 +122,13 @@ Ten multiple-choice questions. Take it with your lecture notes closed. Aim for 9
 - B) `f.Add` registers assertions that the `f.Fuzz` function must satisfy.
 - C) `f.Add` sets the number of fuzz iterations.
 - D) `f.Add` and `f.Fuzz` are unrelated; `f.Add` configures logging.
+
+<details>
+<summary>Answer</summary>
+
+**A.** `f.Add` seeds the corpus; its arguments must match — in type and order — the fuzzed parameters of the `f.Fuzz` function (everything after the leading `*testing.T`). Seeds run as ordinary subtests on every `go test` (acting as regression tests) and are the starting points the engine mutates when fuzzing with `-fuzz`. See <https://go.dev/security/fuzz/>.
+
+</details>
 
 ---
 
@@ -83,6 +139,13 @@ Ten multiple-choice questions. Take it with your lecture notes closed. Aim for 9
 - C) It deletes the input to avoid polluting the corpus.
 - D) It writes it to `/tmp` and the file is gone after reboot.
 
+<details>
+<summary>Answer</summary>
+
+**B.** The engine minimizes the failing input and writes it to `testdata/fuzz/FuzzXxx/<hash>`. Once you commit that file, it is part of the seed corpus: it runs on every `go test` with no `-fuzz` flag, so the bug becomes a permanent regression test. The engine also prints a `go test -run=FuzzXxx/<hash>` command to re-run just that crasher.
+
+</details>
+
 ---
 
 **Q10.** A teammate proposes "every package must hit 100% test coverage." What is the strongest objection?
@@ -92,29 +155,14 @@ Ten multiple-choice questions. Take it with your lecture notes closed. Aim for 9
 - C) The `-cover` flag only works on Linux.
 - D) 100% coverage makes the test suite run too slowly to be useful.
 
+<details>
+<summary>Answer</summary>
+
+**B.** Coverage measures executed statements, not verified behaviour, so it is trivially gamed (call everything, assert nothing → 100%, proves nothing). The last few percent are usually hard-to-trigger error paths and getters; covering them produces contorted tests that assert implementation details and break on refactors. Use coverage to find the holes you forgot, not as a number to maximize.
+
 ---
 
-## Answer key (no peeking until you have answered all ten)
-
-1. **B.** `t.Parallel()` signals that the subtest is safe to run concurrently. The testing framework pauses it until the parent's serial work is done, then runs all the parent's parallel subtests together. It does not spawn a thread immediately, and it does not require a command-line flag (though `-parallel=N` caps how many run at once). Documented at <https://pkg.go.dev/testing#T.Parallel>.
-
-2. **B.** Before Go 1.22 the `range` loop reused a single variable across iterations, so a parallel subtest — which runs *after* the loop finished — captured that one variable at its final value, and every parallel subtest tested the last case. The `tc := tc` shadow worked around it. Go 1.22 changed loop semantics so each iteration binds a fresh variable; the shadow is now unnecessary (and `go vet` no longer flags the missing shadow). See <https://go.dev/doc/go1.22>.
-
-3. **B.** A sub-nanosecond `ns/op` is the signature of dead-code elimination: the optimizer saw the result was unused and removed the call. Assign the result to a package-level sink so the compiler cannot prove it is unused. This is the single most common benchmarking mistake.
-
-4. **B.** Read the columns: `4791` is the final `b.N` (the loop ran ~4,791 times for the last measurement), `249830 ns/op` is time per call, `243712 B/op` is heap bytes per call, `2009 allocs/op` is distinct heap allocations per call. `allocs/op` counts *heap* allocations, not stack — stack allocations are free and not counted.
-
-5. **B.** `benchstat` runs a statistical test across the `n=10` runs per side and reports the p-value. A p-value below 0.05 means the difference is statistically significant — unlikely to be noise. `p=0.000` is strong evidence the 64.61% improvement is real. (If `benchstat` instead prints `~`, the difference is not significant and you should not claim a win.)
-
-6. **B.** You never set `b.N`. The framework estimates the per-iteration cost with a short run, then scales `b.N` up until the benchmark has run for its target duration (about a second by default, adjustable with `-benchtime`), which gives a stable timing. Your job is only to make the loop body do one unit of the work you want to measure.
-
-7. **B.** A goroutine leak is a goroutine-profile problem. The profile shows you *how many* goroutines exist and *where each is stuck* — a leak appears as a large, growing cluster all parked at the same line (often a `chan receive` or a `select` with no progress). CPU/heap/mutex profiles answer different questions and would not reveal the leak's location.
-
-8. **A.** `f.Add` seeds the corpus; its arguments must match — in type and order — the fuzzed parameters of the `f.Fuzz` function (everything after the leading `*testing.T`). Seeds run as ordinary subtests on every `go test` (acting as regression tests) and are the starting points the engine mutates when fuzzing with `-fuzz`. See <https://go.dev/security/fuzz/>.
-
-9. **B.** The engine minimizes the failing input and writes it to `testdata/fuzz/FuzzXxx/<hash>`. Once you commit that file, it is part of the seed corpus: it runs on every `go test` with no `-fuzz` flag, so the bug becomes a permanent regression test. The engine also prints a `go test -run=FuzzXxx/<hash>` command to re-run just that crasher.
-
-10. **B.** Coverage measures executed statements, not verified behaviour, so it is trivially gamed (call everything, assert nothing → 100%, proves nothing). The last few percent are usually hard-to-trigger error paths and getters; covering them produces contorted tests that assert implementation details and break on refactors. Use coverage to find the holes you forgot, not as a number to maximize.
+</details>
 
 ---
 

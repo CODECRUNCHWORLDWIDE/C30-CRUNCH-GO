@@ -33,6 +33,14 @@ By the end of this week, you will be able to:
 - **Apply** the 12-factor disposability factors — logs to stdout, stateless process, fast startup — and identify which Week 11 work (graceful shutdown) completes the disposability story. Cite <https://12factor.net/disposability> and <https://12factor.net/logs>.
 - **Cite** docs.docker.com (multi-stage, build cache, Compose, `.dockerignore`), the GoogleContainerTools/distroless repository, 12factor.net (config, logs, processes, disposability), and pkg.go.dev for each technique covered.
 
+## Standards this week meets
+
+| Bar | What this week is measured against |
+| --- | --- |
+| University | `COP 4813` — Configure an application for deployment rather than for the machine it was written on, and package it so it runs the same way somewhere else. |
+| Industry | Hand operations an artifact instead of instructions: one image that reads every setting from the environment, runs as a non-root user with no shell in it, and brings its own dependencies up beside it for a local run. |
+| Beyond the bar | The identical binary is shipped on four runtime bases with the build stage held byte-for-byte constant, so the whole delta is attributable — image size, build time and vulnerability count in one table, every number explained, including what the smallest base costs you — `challenges/challenge-01-shrink-the-image-and-measure.md` |
+
 ## Prerequisites
 
 - **Weeks 5–9 of C30 complete, Week 9 in particular.** This week containerizes the same `notes` service Week 5 started (REST), Week 6 put on Postgres, Week 7 gave a gRPC surface, Week 8 hardened, and Week 9 instrumented. If your Week 9 lab (the instrumented `notes` with `slog`, OTel, and Prometheus metrics) is not green, finish it first — there is nothing meaningful to containerize otherwise.

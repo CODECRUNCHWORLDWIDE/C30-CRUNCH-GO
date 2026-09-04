@@ -31,6 +31,14 @@ By the end of this week, you will be able to:
 - **Propagate** deadlines: set one on every client call, honor `ctx.Done()` in every handler, and trace the `grpc-timeout` header across a service hop.
 - **Evolve** a schema while preserving wire compatibility, and **gate** it with `buf breaking` against the previous version.
 
+## Standards this week meets
+
+| Bar | What this week is measured against |
+| --- | --- |
+| University | `SWE 432` — Serialise and deserialise a wire format, evolve its schema without breaking a deployed client, and offer the same domain over a second protocol without duplicating the logic behind it. |
+| Industry | Publish a service contract other teams generate their clients from, then change it while every one of those deployed clients keeps working through the rollout. |
+| Beyond the bar | The schema change is proved against a four-cell compatibility matrix — v1 client against v2 server and the reverse, both directions of the version skew a rolling deploy actually produces — and then gated by `buf breaking`, so wire compatibility is a merge condition and not a hope — `challenges/challenge-02-protobuf-schema-evolution.md` |
+
 ## Prerequisites
 
 - **Week 5 of C30 complete.** You can build a `net/http` + `chi` REST service with a handler/service/repository split, and you wrote sentinel domain errors. The gRPC handler is the same service layer with a different adapter on top.

@@ -35,6 +35,14 @@ By the end of this week, you will be able to:
 - **Read** standard-library source as the reference for idiomatic Go — walk a function from the `strings` package and explain why it is written the way it is. Cite <https://pkg.go.dev/strings>.
 - **Build** a `CGO_ENABLED=0` static binary, inspect its size and embedded build metadata with `go version -m`, and prove it has no dynamic dependencies. Cite <https://pkg.go.dev/cmd/go#hdr-Compile_packages_and_dependencies>.
 
+## Standards this week meets
+
+| Bar | What this week is measured against |
+| --- | --- |
+| University | `COP 4813` — Past the outcome set: neither ledger course examines a language toolchain in its own right, because both assume you already have one. Week 1 supplies that assumption — build, run, test, vet and format a module, and read the standard library as the reference for how the language is written. |
+| Industry | Set up a service repository a stranger can clone and build: a module with its dependencies pinned in a lockfile, a formatter and two static analysers reporting nothing, a table-driven test suite, and one static binary that runs on a machine with no runtime installed. |
+| Beyond the bar | The same trivial program is built four ways and weighed each time, and the build metadata is read back out of the shipped artifact with `go version -m` — so "where did 8 MB come from" is answered with evidence rather than a guess — `challenges/challenge-01-static-binary-autopsy.md` |
+
 ## Prerequisites
 
 - **A typed language under your belt.** You can read and write functions, loops, conditionals, and basic data structures in at least one of Java, C#, TypeScript, Rust, C++, or Swift. C30 does not teach programming from zero; it teaches Go to programmers.
